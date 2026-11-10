@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Scanner POS - Milangkala 44</title>
+  <title>Scanner POS Cepat - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
-  <!-- Library QR Scanner yang Handal untuk HP -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     :root {
@@ -20,43 +19,57 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background-color: var(--bg-color); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     
-    .header { text-align: center; margin-bottom: 20px; width: 100%; max-width: 500px; }
+    .header { text-align: center; margin-bottom: 15px; width: 100%; max-width: 500px; }
     .header h1 { font-size: 1.4rem; color: var(--gold); font-weight: 800; text-transform: uppercase; }
     .header p { font-size: 0.8rem; color: #cbd5e1; margin-top: 5px; }
 
-    .card { background: var(--card-bg); border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 16px; padding: 20px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 15px; }
+    .card { background: var(--card-bg); border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 16px; padding: 15px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 15px; }
     
-    .form-group { margin-bottom: 15px; }
+    .form-group { margin-bottom: 12px; }
     .form-label { display: block; font-size: 0.8rem; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
-    .form-input, .form-select { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
+    .form-input, .form-select { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
     .form-input:focus, .form-select:focus { outline: none; border-color: var(--gold); }
     
-    .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; text-align: center; text-transform: uppercase; transition: 0.2s; }
-    .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); }
+    .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 800; cursor: pointer; text-align: center; text-transform: uppercase; transition: 0.2s; }
+    .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); margin-bottom: 10px; }
     .btn-gold:active { transform: scale(0.98); }
-    .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; margin-top: 10px; display: none; }
+    .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; display: none; }
+    .btn-sync { background: #2563eb; color: white; margin-top: 5px; }
 
-    #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 2px dashed var(--gold); margin-top: 15px; display: none; }
+    /* Info Bar Offline */
+    .status-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(6, 14, 36, 0.9); padding: 10px 15px; border-radius: 10px; border: 1px solid var(--gold); margin-bottom: 15px; }
+    .status-bar span { font-weight: 700; font-size: 0.85rem; color: var(--gold); }
+    .badge { background: var(--danger); color: white; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; }
+
+    /* Area Kamera & Overlay Feedback Cepat */
+    .reader-container { position: relative; width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; display: none; border: 2px dashed var(--gold); margin-bottom: 15px; }
+    #reader { width: 100%; }
     
-    .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
-    .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
-    .result-box.error { background: rgba(244, 63, 94, 0.2); border-color: var(--danger); color: #fecdd3; }
-    .result-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 5px; }
-    .result-detail { font-size: 0.9rem; line-height: 1.5; }
+    .flash-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-out; }
+    .flash-overlay.show-success { opacity: 1; background: rgba(16, 185, 129, 0.85); backdrop-filter: blur(4px); }
+    .flash-overlay.show-warning { opacity: 1; background: rgba(245, 158, 11, 0.85); backdrop-filter: blur(4px); }
+    
+    .flash-icon { font-size: 4rem; margin-bottom: 10px; }
+    .flash-text { font-size: 1.2rem; font-weight: 800; color: white; text-align: center; padding: 0 10px; }
 
-    #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 9, 26, 0.85); z-index: 999; justify-content: center; align-items: center; flex-direction: column; }
-    .spinner { width: 50px; height: 50px; border: 5px solid rgba(251, 191, 36, 0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 9, 26, 0.9); z-index: 999; justify-content: center; align-items: center; flex-direction: column; }
+    .spinner { width: 40px; height: 40px; border: 4px solid rgba(251, 191, 36, 0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>Scanner Checkpoint</h1>
-    <p>Sistem Milangkala Desa Kutawaringin Ke-44</p>
+    <h1>Scanner Cepat (Offline)</h1>
+    <p>Scan beruntun, simpan offline, upload saat ada sinyal.</p>
   </div>
 
   <div class="card" id="setupCard">
+    <div class="status-bar">
+      <span>Antrean Offline:</span>
+      <span class="badge" id="queueCount">0</span>
+    </div>
+
     <div class="form-group">
       <label class="form-label">TUGAS POS CHECKPOINT</label>
       <select id="posSelect" class="form-select">
@@ -66,37 +79,58 @@
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">NAMA PETUGAS LAPANGAN</label>
-      <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS 1)" required>
+      <label class="form-label">NAMA PETUGAS</label>
+      <input type="text" id="officerName" class="form-input" placeholder="Misal: PETUGAS POS 1" required>
     </div>
-    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Buka Kamera Scanner</button>
+    
+    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Mulai Scan Peserta</button>
+    <button class="btn btn-sync" id="btnSyncData" onclick="syncData()">🔄 Upload Data ke Server</button>
     <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Tutup Kamera</button>
   </div>
 
-  <div id="reader"></div>
-
-  <div class="card result-box" id="resultBox">
-    <div class="result-title" id="resultTitle">STATUS SCAN</div>
-    <div class="result-detail" id="resultDetail">Detail akan muncul di sini.</div>
-    <button class="btn btn-gold" style="margin-top:15px; padding:10px;" onclick="resetScanner()">Scan QR Lainnya</button>
+  <!-- Area Kamera dengan Flash Overlay Cepat -->
+  <div class="reader-container" id="readerContainer">
+    <div id="reader"></div>
+    <div class="flash-overlay" id="flashOverlay">
+      <div class="flash-icon" id="flashIcon">✅</div>
+      <div class="flash-text" id="flashText">Tersimpan!</div>
+    </div>
   </div>
 
-  <!-- Loading Overlay -->
+  <!-- Loading Overlay untuk Sinkronisasi -->
   <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="color:var(--gold); font-weight:700;">Memvalidasi QR Code...</div>
+    <div style="color:var(--gold); font-weight:700;" id="syncProgressText">Mengupload data 0 / 0...</div>
   </div>
 
   <script>
     /**
      * ==========================================================
-     * PENTING: TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
+     * URL API GOOGLE APPS SCRIPT ANDA
      * ==========================================================
      */
     const API_URL = "https://script.google.com/macros/s/AKfycbyrjVOusQ__ChTzgTSM8QdXSiyZl4W0H-bLfJmxgrb2JxRq_R867b4QxeBUYFODuiaSAw/exec";
 
     let html5QrcodeScanner = null;
     let isScanning = false;
+    let offlineQueue = JSON.parse(localStorage.getItem('qrScannerQueue')) || [];
+    
+    // Variabel untuk mencegah double-scan beruntun
+    let lastScannedToken = "";
+    let lastScannedTime = 0;
+
+    // Inisialisasi tampilan awal
+    document.addEventListener("DOMContentLoaded", () => {
+      updateQueueUI();
+    });
+
+    function updateQueueUI() {
+      const count = offlineQueue.length;
+      const badge = document.getElementById('queueCount');
+      badge.textContent = count;
+      badge.style.background = count > 0 ? 'var(--danger)' : 'var(--success)';
+      document.getElementById('btnSyncData').style.display = count > 0 ? 'block' : 'none';
+    }
 
     // Memulai Kamera
     function startScanner() {
@@ -106,20 +140,19 @@
         return;
       }
       
-      document.getElementById('resultBox').style.display = 'none';
-      document.getElementById('reader').style.display = 'block';
+      document.getElementById('readerContainer').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
+      document.getElementById('btnSyncData').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
 
       html5QrcodeScanner = new Html5Qrcode("reader");
       
       const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
       
-      // Menggunakan kamera belakang (environment) secara default
       html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
       .then(() => { isScanning = true; })
       .catch((err) => {
-        alert("Gagal mengakses kamera. Pastikan izin kamera diberikan. Error: " + err);
+        alert("Gagal mengakses kamera. Error: " + err);
         stopScanner();
       });
     }
@@ -132,87 +165,67 @@
           isScanning = false;
         }).catch(err => console.log(err));
       }
-      document.getElementById('reader').style.display = 'none';
+      document.getElementById('readerContainer').style.display = 'none';
       document.getElementById('btnStartScan').style.display = 'block';
       document.getElementById('btnStopScan').style.display = 'none';
+      updateQueueUI(); // Munculkan kembali tombol sync jika ada antrean
     }
 
-    // Jika QR Berhasil Terbaca
+    // Eksekusi Sangat Cepat Saat QR Terbaca (0 Detik Delay Server)
     function onScanSuccess(decodedText, decodedResult) {
       if (!isScanning) return;
       
-      // Hentikan scanner sementara agar tidak scan dua kali beruntun
-      stopScanner();
-      
-      // Tampilkan loading
-      document.getElementById('loadingOverlay').style.display = 'flex';
+      const now = Date.now();
+      // Cegah scan QR yang SAMA berulang kali dalam 3 detik (Cooldown)
+      if (decodedText === lastScannedToken && (now - lastScannedTime) < 3000) {
+        return;
+      }
 
+      lastScannedToken = decodedText;
+      lastScannedTime = now;
+
+      // Ambil data form
       const posValue = document.getElementById('posSelect').value;
       const officerValue = document.getElementById('officerName').value.trim();
+      const localTime = new Date().toLocaleString('id-ID');
 
-      const payload = {
+      // 1. Simpan ke Queue Offline
+      offlineQueue.push({
         action: "scanCheckpoint",
         pos: posValue,
         petugas: officerValue,
-        token_qr: decodedText
-      };
-
-      // Kirim Data ke Google Apps Script (menggunakan text/plain untuk bypass CORS)
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      })
-      .then(response => response.json())
-      .then(data => {
-        document.getElementById('loadingOverlay').style.display = 'none';
-        showResult(data);
-      })
-      .catch(error => {
-        document.getElementById('loadingOverlay').style.display = 'none';
-        showResult({ success: false, message: "Koneksi Error. Pastikan internet lancar dan URL API benar." });
+        token_qr: decodedText,
+        waktu_scan_lokal: localTime
       });
+      localStorage.setItem('qrScannerQueue', JSON.stringify(offlineQueue));
+      updateQueueUI();
+
+      // 2. Beri Feedback Instan (Audio & Visual)
+      playAudioTone('success');
+      showFlashFeedback('success', `Tersimpan!\n${decodedText.substring(0,9)}...`);
     }
 
     function onScanFailure(error) {
-      // Abaikan error saat mencari QR di frame
+      // Abaikan error dari frame kamera kosong
     }
 
-    // Menampilkan Hasil Validasi
-    function showResult(data) {
-      const box = document.getElementById('resultBox');
-      const title = document.getElementById('resultTitle');
-      const detail = document.getElementById('resultDetail');
-      
-      box.style.display = 'block';
-      box.className = 'card result-box ' + (data.success ? 'success' : 'error');
-      
-      if (data.success) {
-        title.textContent = "✅ CHECKPOINT BERHASIL";
-        detail.innerHTML = `
-          <strong>Nomor:</strong> ${data.nomor}<br>
-          <strong>Nama:</strong> ${data.nama}<br>
-          <strong>Status:</strong> ${data.status_peserta}<br>
-          <strong>Waktu:</strong> ${data.waktu}
-        `;
-        playAudioTone('success');
-      } else {
-        title.textContent = "⛔ SCAN DITOLAK";
-        detail.innerHTML = `
-          <strong>Alasan:</strong> ${data.message}<br>
-          <strong>Nomor:</strong> ${data.nomor || '-'}<br>
-          <strong>Nama:</strong> ${data.nama || '-'}
-        `;
-        playAudioTone('error');
-      }
+    // Animasi Kilat Overlay Tanpa Menghentikan Kamera
+    function showFlashFeedback(type, text) {
+      const overlay = document.getElementById('flashOverlay');
+      const icon = document.getElementById('flashIcon');
+      const textEl = document.getElementById('flashText');
+
+      overlay.className = 'flash-overlay show-' + type;
+      icon.textContent = type === 'success' ? '✅' : '⚠️';
+      textEl.innerText = text;
+
+      // Hilangkan overlay setelah 0.6 detik agar kamera terlihat lagi
+      setTimeout(() => {
+        overlay.className = 'flash-overlay';
+      }, 600);
     }
 
-    function resetScanner() {
-      document.getElementById('resultBox').style.display = 'none';
-      startScanner();
-    }
-
-    // Bunyi Beep Sederhana menggunakan Web Audio API
+    // Bunyi Beep Sederhana
     function playAudioTone(type) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -223,22 +236,74 @@
         
         if (type === 'success') {
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(800, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+          osc.frequency.setValueAtTime(900, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.1);
           gain.gain.setValueAtTime(0.5, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
           osc.start(ctx.currentTime);
-          osc.stop(ctx.currentTime + 0.3);
-        } else {
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(200, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.2);
-          gain.gain.setValueAtTime(0.5, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-          osc.start(ctx.currentTime);
-          osc.stop(ctx.currentTime + 0.4);
+          osc.stop(ctx.currentTime + 0.2);
         }
       } catch(e) { console.log("Audio not supported"); }
+    }
+
+    /**
+     * ==========================================================
+     * PROSES SINKRONISASI MASSAL (Saat Terhubung Wi-Fi/Internet)
+     * ==========================================================
+     */
+    async function syncData() {
+      if (offlineQueue.length === 0) {
+        alert("Tidak ada data antrean untuk disinkronisasi.");
+        return;
+      }
+
+      if (!confirm(`Ada ${offlineQueue.length} data scan tersimpan. Upload ke server sekarang? Pastikan internet Anda aktif.`)) {
+        return;
+      }
+
+      const overlay = document.getElementById('loadingOverlay');
+      const progressText = document.getElementById('syncProgressText');
+      overlay.style.display = 'flex';
+
+      let successCount = 0;
+      let networkErrorCount = 0;
+      let remainingQueue = []; // Menyimpan data yang gagal dikirim karena sinyal putus
+
+      for (let i = 0; i < offlineQueue.length; i++) {
+        let currentItem = offlineQueue[i];
+        progressText.textContent = `Mengupload data ${i + 1} dari ${offlineQueue.length}...`;
+
+        try {
+          let response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(currentItem)
+          });
+          
+          let result = await response.json();
+          // Apapun balasan server (Valid atau Ditolak karena Pos terlewati/Double), 
+          // data sudah berhasil disetorkan ke server, jadi tidak perlu diantrekan lagi.
+          successCount++;
+          
+        } catch (error) {
+          // Hanya jika error jaringan / koneksi terputus, data kita simpan kembali ke antrean
+          networkErrorCount++;
+          remainingQueue.push(currentItem);
+        }
+      }
+
+      // Update penyimpanan HP dengan sisa data yang gagal terkirim (jika ada)
+      offlineQueue = remainingQueue;
+      localStorage.setItem('qrScannerQueue', JSON.stringify(offlineQueue));
+      updateQueueUI();
+
+      overlay.style.display = 'none';
+
+      let msg = `Sinkronisasi Selesai.\n\nBerhasil Terkirim: ${successCount} data.`;
+      if (networkErrorCount > 0) {
+        msg += `\n\nGagal (Sinyal Putus): ${networkErrorCount} data. Data gagal masih tersimpan di HP. Silakan cari Wi-Fi lalu tekan Sinkronisasi lagi.`;
+      }
+      alert(msg);
     }
   </script>
 </body>
