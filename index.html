@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Scanner POS Cepat - Milangkala 44</title>
+  <title>Scanner POS Cepat (Online) - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
@@ -34,12 +34,6 @@
     .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); margin-bottom: 10px; }
     .btn-gold:active { transform: scale(0.98); }
     .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; display: none; }
-    .btn-sync { background: #2563eb; color: white; margin-top: 5px; }
-
-    /* Info Bar Offline */
-    .status-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(6, 14, 36, 0.9); padding: 10px 15px; border-radius: 10px; border: 1px solid var(--gold); margin-bottom: 15px; }
-    .status-bar span { font-weight: 700; font-size: 0.85rem; color: var(--gold); }
-    .badge { background: var(--danger); color: white; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; }
 
     /* Area Kamera & Overlay Feedback Cepat */
     .reader-container { position: relative; width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; display: none; border: 2px dashed var(--gold); margin-bottom: 15px; }
@@ -47,29 +41,32 @@
     
     .flash-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-out; }
     .flash-overlay.show-success { opacity: 1; background: rgba(16, 185, 129, 0.85); backdrop-filter: blur(4px); }
-    .flash-overlay.show-warning { opacity: 1; background: rgba(245, 158, 11, 0.85); backdrop-filter: blur(4px); }
     
     .flash-icon { font-size: 4rem; margin-bottom: 10px; }
     .flash-text { font-size: 1.2rem; font-weight: 800; color: white; text-align: center; padding: 0 10px; }
 
-    #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 9, 26, 0.9); z-index: 999; justify-content: center; align-items: center; flex-direction: column; }
-    .spinner { width: 40px; height: 40px; border: 4px solid rgba(251, 191, 36, 0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Log Riwayat Live */
+    .log-container { width: 100%; max-width: 500px; background: rgba(6, 14, 36, 0.9); border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.3); padding: 10px; display: none; max-height: 250px; overflow-y: auto; }
+    .log-title { font-size: 0.8rem; font-weight: 800; color: var(--gold); margin-bottom: 10px; text-transform: uppercase; text-align: center; }
+    .log-item { padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; border-left: 4px solid transparent; animation: slideIn 0.3s ease-out; }
+    .log-item.success { background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: #a7f3d0; }
+    .log-item.error { background: rgba(244, 63, 94, 0.15); border-color: var(--danger); color: #fecdd3; }
+    .log-item.pending { background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #bae6fd; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>Scanner Cepat (Offline)</h1>
-    <p>Scan beruntun, simpan offline, upload saat ada sinyal.</p>
+    <h1>Scanner Cepat (Online)</h1>
+    <p>Scan beruntun, kamera tidak mati, data langsung ke server.</p>
   </div>
 
   <div class="card" id="setupCard">
-    <div class="status-bar">
-      <span>Antrean Offline:</span>
-      <span class="badge" id="queueCount">0</span>
-    </div>
-
     <div class="form-group">
       <label class="form-label">TUGAS POS CHECKPOINT</label>
       <select id="posSelect" class="form-select">
@@ -83,8 +80,7 @@
       <input type="text" id="officerName" class="form-input" placeholder="Misal: PETUGAS POS 1" required>
     </div>
     
-    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Mulai Scan Peserta</button>
-    <button class="btn btn-sync" id="btnSyncData" onclick="syncData()">🔄 Upload Data ke Server</button>
+    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Mulai Scan Live</button>
     <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Tutup Kamera</button>
   </div>
 
@@ -92,15 +88,15 @@
   <div class="reader-container" id="readerContainer">
     <div id="reader"></div>
     <div class="flash-overlay" id="flashOverlay">
-      <div class="flash-icon" id="flashIcon">✅</div>
-      <div class="flash-text" id="flashText">Tersimpan!</div>
+      <div class="flash-icon">📸</div>
+      <div class="flash-text">Terekam!</div>
     </div>
   </div>
 
-  <!-- Loading Overlay untuk Sinkronisasi -->
-  <div id="loadingOverlay">
-    <div class="spinner"></div>
-    <div style="color:var(--gold); font-weight:700;" id="syncProgressText">Mengupload data 0 / 0...</div>
+  <!-- Log Respon Server Live -->
+  <div class="log-container" id="logContainer">
+    <div class="log-title">Live Server Log</div>
+    <div id="logList"></div>
   </div>
 
   <script>
@@ -113,24 +109,11 @@
 
     let html5QrcodeScanner = null;
     let isScanning = false;
-    let offlineQueue = JSON.parse(localStorage.getItem('qrScannerQueue')) || [];
     
     // Variabel untuk mencegah double-scan beruntun
     let lastScannedToken = "";
     let lastScannedTime = 0;
-
-    // Inisialisasi tampilan awal
-    document.addEventListener("DOMContentLoaded", () => {
-      updateQueueUI();
-    });
-
-    function updateQueueUI() {
-      const count = offlineQueue.length;
-      const badge = document.getElementById('queueCount');
-      badge.textContent = count;
-      badge.style.background = count > 0 ? 'var(--danger)' : 'var(--success)';
-      document.getElementById('btnSyncData').style.display = count > 0 ? 'block' : 'none';
-    }
+    let scanCounter = 0; // ID unik untuk log
 
     // Memulai Kamera
     function startScanner() {
@@ -141,8 +124,8 @@
       }
       
       document.getElementById('readerContainer').style.display = 'block';
+      document.getElementById('logContainer').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
-      document.getElementById('btnSyncData').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
 
       html5QrcodeScanner = new Html5Qrcode("reader");
@@ -168,41 +151,61 @@
       document.getElementById('readerContainer').style.display = 'none';
       document.getElementById('btnStartScan').style.display = 'block';
       document.getElementById('btnStopScan').style.display = 'none';
-      updateQueueUI(); // Munculkan kembali tombol sync jika ada antrean
     }
 
-    // Eksekusi Sangat Cepat Saat QR Terbaca (0 Detik Delay Server)
+    // Dieksekusi seketika saat QR Terbaca
     function onScanSuccess(decodedText, decodedResult) {
       if (!isScanning) return;
       
       const now = Date.now();
-      // Cegah scan QR yang SAMA berulang kali dalam 3 detik (Cooldown)
+      // Cegah scan QR yang SAMA berulang kali dalam 3 detik (Cooldown anti-dobel)
       if (decodedText === lastScannedToken && (now - lastScannedTime) < 3000) {
         return;
       }
 
       lastScannedToken = decodedText;
       lastScannedTime = now;
+      scanCounter++;
+      const currentLogId = "log-" + scanCounter;
 
-      // Ambil data form
+      // 1. Beri Feedback Instan ke Petugas (Beep + Kedip Layar)
+      playAudioTone('beep');
+      showFlashFeedback();
+
+      // 2. Siapkan Data
       const posValue = document.getElementById('posSelect').value;
       const officerValue = document.getElementById('officerName').value.trim();
-      const localTime = new Date().toLocaleString('id-ID');
-
-      // 1. Simpan ke Queue Offline
-      offlineQueue.push({
+      
+      const payload = {
         action: "scanCheckpoint",
         pos: posValue,
         petugas: officerValue,
-        token_qr: decodedText,
-        waktu_scan_lokal: localTime
-      });
-      localStorage.setItem('qrScannerQueue', JSON.stringify(offlineQueue));
-      updateQueueUI();
+        token_qr: decodedText
+      };
 
-      // 2. Beri Feedback Instan (Audio & Visual)
-      playAudioTone('success');
-      showFlashFeedback('success', `Tersimpan!\n${decodedText.substring(0,9)}...`);
+      // 3. Tampilkan Log 'Sedang Mengirim'
+      addLog(currentLogId, 'pending', `⏳ Mengirim: ${decodedText.substring(0,8)}...`);
+
+      // 4. Kirim ke Server secara Asynchronous (Latar Belakang)
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if(data.success) {
+          updateLog(currentLogId, 'success', `✅ Berhasil: No.${data.nomor} (${data.nama})`);
+          playAudioTone('success'); // Beep sukses dari server
+        } else {
+          updateLog(currentLogId, 'error', `⛔ Ditolak: ${data.message}`);
+          playAudioTone('error'); // Beep error dari server (pos salah/dobel)
+        }
+      })
+      .catch(error => {
+        updateLog(currentLogId, 'error', `⚠️ Koneksi Error saat mengirim kode.`);
+        playAudioTone('error');
+      });
     }
 
     function onScanFailure(error) {
@@ -210,22 +213,43 @@
     }
 
     // Animasi Kilat Overlay Tanpa Menghentikan Kamera
-    function showFlashFeedback(type, text) {
+    function showFlashFeedback() {
       const overlay = document.getElementById('flashOverlay');
-      const icon = document.getElementById('flashIcon');
-      const textEl = document.getElementById('flashText');
-
-      overlay.className = 'flash-overlay show-' + type;
-      icon.textContent = type === 'success' ? '✅' : '⚠️';
-      textEl.innerText = text;
-
-      // Hilangkan overlay setelah 0.6 detik agar kamera terlihat lagi
+      overlay.className = 'flash-overlay show-success';
+      
+      // Hilangkan overlay setelah 0.4 detik agar kamera terlihat lagi
       setTimeout(() => {
         overlay.className = 'flash-overlay';
-      }, 600);
+      }, 400);
     }
 
-    // Bunyi Beep Sederhana
+    // Menambah Log Live di bawah Kamera
+    function addLog(id, status, text) {
+      const logList = document.getElementById('logList');
+      const div = document.createElement('div');
+      div.id = id;
+      div.className = `log-item ${status}`;
+      div.innerHTML = `<strong>${new Date().toLocaleTimeString('id-ID')}</strong> - ${text}`;
+      
+      // Masukkan ke paling atas
+      logList.insertBefore(div, logList.firstChild);
+      
+      // Batasi maksimal 15 log terakhir agar tidak memberatkan HP
+      if (logList.children.length > 15) {
+        logList.removeChild(logList.lastChild);
+      }
+    }
+
+    // Memperbarui Log setelah balasan Server diterima
+    function updateLog(id, status, text) {
+      const div = document.getElementById(id);
+      if(div) {
+        div.className = `log-item ${status}`;
+        div.innerHTML = `<strong>${new Date().toLocaleTimeString('id-ID')}</strong> - ${text}`;
+      }
+    }
+
+    // Manajemen Audio
     function playAudioTone(type) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -234,76 +258,34 @@
         osc.connect(gain);
         gain.connect(ctx.destination);
         
-        if (type === 'success') {
+        if (type === 'beep') {
+          // Bunyi "Tit" cepat saat kode berhasil tertangkap kamera
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(900, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.1);
+          osc.frequency.setValueAtTime(1000, ctx.currentTime);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.1);
+        } else if (type === 'success') {
+          // Bunyi melodi pendek saat data valid di server
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.15);
           gain.gain.setValueAtTime(0.5, ctx.currentTime);
           gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
           osc.start(ctx.currentTime);
           osc.stop(ctx.currentTime + 0.2);
+        } else if (type === 'error') {
+          // Bunyi tet-tot saat ditolak server / error jaringan
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(250, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.4, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.3);
         }
       } catch(e) { console.log("Audio not supported"); }
-    }
-
-    /**
-     * ==========================================================
-     * PROSES SINKRONISASI MASSAL (Saat Terhubung Wi-Fi/Internet)
-     * ==========================================================
-     */
-    async function syncData() {
-      if (offlineQueue.length === 0) {
-        alert("Tidak ada data antrean untuk disinkronisasi.");
-        return;
-      }
-
-      if (!confirm(`Ada ${offlineQueue.length} data scan tersimpan. Upload ke server sekarang? Pastikan internet Anda aktif.`)) {
-        return;
-      }
-
-      const overlay = document.getElementById('loadingOverlay');
-      const progressText = document.getElementById('syncProgressText');
-      overlay.style.display = 'flex';
-
-      let successCount = 0;
-      let networkErrorCount = 0;
-      let remainingQueue = []; // Menyimpan data yang gagal dikirim karena sinyal putus
-
-      for (let i = 0; i < offlineQueue.length; i++) {
-        let currentItem = offlineQueue[i];
-        progressText.textContent = `Mengupload data ${i + 1} dari ${offlineQueue.length}...`;
-
-        try {
-          let response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(currentItem)
-          });
-          
-          let result = await response.json();
-          // Apapun balasan server (Valid atau Ditolak karena Pos terlewati/Double), 
-          // data sudah berhasil disetorkan ke server, jadi tidak perlu diantrekan lagi.
-          successCount++;
-          
-        } catch (error) {
-          // Hanya jika error jaringan / koneksi terputus, data kita simpan kembali ke antrean
-          networkErrorCount++;
-          remainingQueue.push(currentItem);
-        }
-      }
-
-      // Update penyimpanan HP dengan sisa data yang gagal terkirim (jika ada)
-      offlineQueue = remainingQueue;
-      localStorage.setItem('qrScannerQueue', JSON.stringify(offlineQueue));
-      updateQueueUI();
-
-      overlay.style.display = 'none';
-
-      let msg = `Sinkronisasi Selesai.\n\nBerhasil Terkirim: ${successCount} data.`;
-      if (networkErrorCount > 0) {
-        msg += `\n\nGagal (Sinyal Putus): ${networkErrorCount} data. Data gagal masih tersimpan di HP. Silakan cari Wi-Fi lalu tekan Sinkronisasi lagi.`;
-      }
-      alert(msg);
     }
   </script>
 </body>
