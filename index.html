@@ -112,7 +112,54 @@
     let successCount = 0;
     let rejectCount = 0;
     const speechQueue = [];
+
     let isSpeakingQueue = false;
+
+    // Bunyi rana kamera singkat ("cekrek") setiap QR baru berhasil dibaca kamera.
+    let scanAudioContext = null;
+    function prepareScanSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!scanAudioContext) scanAudioContext = new AudioCtx();
+        if (scanAudioContext.state === "suspended") scanAudioContext.resume();
+      } catch (err) {
+        console.warn("Audio scanner tidak tersedia:", err);
+      }
+    }
+
+    function playScanShutter() {
+      try {
+        if (!scanAudioContext) return;
+        if (scanAudioContext.state === "suspended") scanAudioContext.resume();
+
+        const ctx = scanAudioContext;
+        const now = ctx.currentTime;
+
+        // Klik tajam pertama, disusul klik pendek agar terdengar seperti rana kamera.
+        const clicks = [
+          { start: 0, duration: 0.035, from: 1550, to: 820, volume: 0.16 },
+          { start: 0.055, duration: 0.045, from: 1050, to: 520, volume: 0.12 }
+        ];
+
+        clicks.forEach(click => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(click.from, now + click.start);
+          osc.frequency.exponentialRampToValueAtTime(click.to, now + click.start + click.duration);
+          gain.gain.setValueAtTime(0.0001, now + click.start);
+          gain.gain.exponentialRampToValueAtTime(click.volume, now + click.start + 0.004);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + click.start + click.duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + click.start);
+          osc.stop(now + click.start + click.duration + 0.005);
+        });
+      } catch (err) {
+        console.warn("Gagal memutar bunyi scan:", err);
+      }
+    }
 
     function updateQueueStatus() {
       const el = document.getElementById('queueStatus');
@@ -141,6 +188,7 @@
         return;
       }
 
+      prepareScanSound(); // Diaktifkan dari sentuhan tombol agar audio diizinkan browser.
       isStarting = true;
       scanSessionId++;
       scanQueue.length = 0;
@@ -151,7 +199,7 @@
       document.getElementById('reader').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
-      setScannerStatus("Mengaktifkan kamera belakang...");
+      setScannerStatus("Mencari kamera belakang...");
 
       try {
         html5QrcodeScanner = new Html5Qrcode("reader", {
@@ -167,22 +215,37 @@
           },
           aspectRatio: 1.0,
           disableFlip: true,
-          videoConstraints: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
         };
 
-        await html5QrcodeScanner.start(
-          { facingMode: "environment" },
-          config,
-          onScanSuccess,
-          onScanFailure
+        // Pilih kamera belakang secara eksplisit berdasarkan label perangkat.
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error("Tidak ada kamera yang terdeteksi pada perangkat.");
+        }
+
+        const rearCamera = cameras.find(camera =>
+          /back|rear|environment|belakang|traseira|arrière/i.test(camera.label || "")
         );
 
+        if (rearCamera) {
+          await html5QrcodeScanner.start(
+            rearCamera.id,
+            config,
+            onScanSuccess,
+            onScanFailure
+          );
+        } else {
+          // Fallback browser untuk perangkat yang tidak memberi label kamera.
+          await html5QrcodeScanner.start(
+            { facingMode: { ideal: "environment" } },
+            config,
+            onScanSuccess,
+            onScanFailure
+          );
+        }
+
         isScanning = true;
-        setScannerStatus("● KAMERA AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
+        setScannerStatus("● KAMERA BELAKANG AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
       } catch (err) {
         console.error("Gagal memulai kamera:", err);
         alert("Gagal mengakses kamera. Izinkan kamera dan buka melalui HTTPS. " + (err.message || err));
@@ -229,6 +292,7 @@
 
       pendingCodes.add(qrText);
       scanQueue.push(qrText);
+      playScanShutter(); // Bunyi "cekrek" langsung saat QR baru terbaca.
       updateQueueStatus();
       setScannerStatus("QR TERBACA — MASUK ANTRIAN VALIDASI.");
       processScanQueue();
