@@ -55,7 +55,43 @@
     #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 9, 26, 0.85); z-index: 999; justify-content: center; align-items: center; flex-direction: column; }
     .spinner { width: 50px; height: 50px; border: 5px solid rgba(251, 191, 36, 0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  
+    /* Kamera belakang: area scan ditempatkan paling atas, tepat di bawah header */
+    #reader {
+      width: 100%;
+      max-width: 500px;
+      min-height: 0;
+      margin: 8px 0 4px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px dashed var(--gold);
+      background: #000;
+      display: none;
+      order: 2;
+      box-shadow: 0 0 0 1px rgba(255,215,0,.12), 0 8px 24px rgba(0,0,0,.35);
+    }
+    #reader video {
+      display: block;
+      width: 100% !important;
+      height: auto !important;
+      max-height: 58vh;
+      object-fit: cover;
+    }
+    #reader #qr-shaded-region {
+      border-width: 4px !important;
+    }
+    #scannerStatus, #queueStatus {
+      max-width: 500px;
+      width: 100%;
+      order: 3;
+    }
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      #reader { margin-top: 7px; border-radius: 10px; }
+      #reader video { max-height: 54vh; }
+    }
+
+</style>
 </head>
 <body>
 
@@ -70,6 +106,10 @@
       Pasang scanner di layar utama HP agar mudah dibuka.
     </div>
   </div>
+
+  <div id="reader"></div>
+  <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:8px 0 6px;">Scanner belum aktif.</div>
+  <div id="queueStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;margin-bottom:12px;">ANTRIAN: 0 | BERHASIL: 0 | DITOLAK: 0</div>
 
   <div class="card" id="setupCard">
     <div class="form-group">
@@ -86,10 +126,6 @@
     <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Buka Kamera Scanner</button>
     <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Jeda Scanner</button>
   </div>
-
-  <div id="reader"></div>
-  <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:8px 0 6px;">Scanner belum aktif.</div>
-  <div id="queueStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;margin-bottom:12px;">ANTRIAN: 0 | BERHASIL: 0 | DITOLAK: 0</div>
 
   <div class="card result-box" id="resultBox" style="position:relative; z-index:2;">
     <div class="result-title" id="resultTitle">STATUS SCAN</div>
