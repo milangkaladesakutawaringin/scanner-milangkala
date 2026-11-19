@@ -207,6 +207,8 @@
           <strong>Waktu:</strong> ${data.waktu}
         `;
         playAudioTone('success');
+        // Umumkan nama peserta setelah server menyatakan scan POS FINISH berhasil.
+        speakParticipantName(data.nama);
       } else {
         title.textContent = "⛔ SCAN DITOLAK";
         detail.innerHTML = `
@@ -215,6 +217,31 @@
           <strong>Nama:</strong> ${data.nama || '-'}
         `;
         playAudioTone('error');
+      }
+    }
+
+    // Membacakan nama peserta dalam Bahasa Indonesia.
+    // Browser/HP harus mendukung SpeechSynthesis dan suara tidak dalam mode senyap.
+    function speakParticipantName(nama) {
+      if (!('speechSynthesis' in window) || !nama) return;
+
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance("Berhasil. " + String(nama));
+        utterance.lang = "id-ID";
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        const indoVoice = voices.find(voice =>
+          (voice.lang || "").toLowerCase().startsWith("id")
+        );
+        if (indoVoice) utterance.voice = indoVoice;
+
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.log("Fitur suara nama tidak tersedia:", e);
       }
     }
 
