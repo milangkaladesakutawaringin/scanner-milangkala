@@ -6,7 +6,7 @@
   <title>Scanner POS - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <!-- Library QR Scanner yang Handal untuk HP -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
       --bg-color: #04091a;
@@ -73,7 +73,8 @@
   </div>
 
   <div id="reader"></div>
-  <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:8px 0 12px;">Scanner belum aktif.</div>
+  <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:8px 0 6px;">Scanner belum aktif.</div>
+  <div id="queueStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;margin-bottom:12px;">ANTRIAN: 0 | BERHASIL: 0 | DITOLAK: 0</div>
 
   <div class="card result-box" id="resultBox" style="position:relative; z-index:2;">
     <div class="result-title" id="resultTitle">STATUS SCAN</div>
@@ -97,100 +98,27 @@
 
     let html5QrcodeScanner = null;
     let isScanning = false;
-    const inFlightCodes = new Set();
-    const recentlyScanned = new Map();
-    const MAX_PARALLEL_REQUESTS = 3;
-    const DUPLICATE_COOLDOWN_MS = 8000;
+    let isStarting = false;
+    let isProcessing = false;
+    let scanSessionId = 0;
 
-    // Memulai Kamera
-    function startScanner() {
-      const officer = document.getElementById('officerName').value.trim();
-      if (!officer || officer.length < 2) {
-        alert("Mohon isi nama petugas terlebih dahulu!");
-        return;
+    // Kamera boleh membaca QR berikutnya sambil request server diproses berurutan.
+    const scanQueue = [];
+    const pendingCodes = new Set();
+    const processedCodes = new Set();
+    const retryAfterByCode = new Map();
+    const MAX_SCAN_QUEUE = 20;
+    const REQUEST_TIMEOUT_MS = 15000;
+    let successCount = 0;
+    let rejectCount = 0;
+    const speechQueue = [];
+    let isSpeakingQueue = false;
+
+    function updateQueueStatus() {
+      const el = document.getElementById('queueStatus');
+      if (el) {
+        el.textContent = `ANTRIAN: ${scanQueue.length}${isProcessing ? ' (1 DIPROSES)' : ''} | BERHASIL: ${successCount} | DITOLAK: ${rejectCount}`;
       }
-      
-      document.getElementById('resultBox').style.display = 'none';
-      document.getElementById('reader').style.display = 'block';
-      document.getElementById('btnStartScan').style.display = 'none';
-      document.getElementById('btnStopScan').style.display = 'block';
-
-      html5QrcodeScanner = new Html5Qrcode("reader", { verbose: false });
-      
-      const config = {
-        fps: 20,
-        qrbox: { width: 220, height: 220 },
-        aspectRatio: 1.0,
-        disableFlip: true,
-        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-      };
-      
-      // Menggunakan kamera belakang (environment) secara default
-      html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
-      .then(() => { isScanning = true; setScannerStatus('Scanner aktif — arahkan QR gelang ke kamera.'); })
-      .catch((err) => {
-        alert("Gagal mengakses kamera. Pastikan izin kamera diberikan. Error: " + err);
-        stopScanner();
-      });
-    }
-
-    // Menghentikan Kamera
-    function stopScanner() {
-      if (html5QrcodeScanner && isScanning) {
-        html5QrcodeScanner.stop().then(() => {
-          isScanning = false;
-          try { html5QrcodeScanner.clear(); } catch (e) {}
-        }).catch(err => console.log(err));
-      }
-      document.getElementById('reader').style.display = 'none';
-      setScannerStatus('Scanner dijeda.');
-      document.getElementById('btnStartScan').style.display = 'block';
-      document.getElementById('btnStopScan').style.display = 'none';
-    }
-
-    // Validasi server berjalan paralel; kamera tidak menunggu respons satu peserta.
-    function onScanSuccess(decodedText, decodedResult) {
-      if (!isScanning || !decodedText) return;
-      const now = Date.now();
-      const lastTime = recentlyScanned.get(decodedText) || 0;
-      if (inFlightCodes.has(decodedText) || now - lastTime < DUPLICATE_COOLDOWN_MS) return;
-      if (inFlightCodes.size >= MAX_PARALLEL_REQUESTS) {
-        setScannerStatus("Sedang memproses peserta, arahkan QR berikutnya sebentar lagi.");
-        return;
-      }
-
-      inFlightCodes.add(decodedText);
-      recentlyScanned.set(decodedText, now);
-      setScannerStatus("QR terbaca — memvalidasi peserta...");
-      const payload = {
-        action: "scanCheckpoint",
-        pos: "3",
-        petugas: document.getElementById('officerName').value.trim(),
-        token_qr: decodedText
-      };
-
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      })
-      .then(response => {
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        return response.json();
-      })
-      .then(data => showResult(data))
-      .catch(error => {
-        recentlyScanned.delete(decodedText);
-        showResult({ success: false, message: "Koneksi bermasalah. Silakan scan ulang QR ini." });
-        console.log("Scan API error:", error);
-      })
-      .finally(() => {
-        inFlightCodes.delete(decodedText);
-        setScannerStatus(inFlightCodes.size
-          ? "Memvalidasi " + inFlightCodes.size + " peserta..."
-          : "Scanner aktif — arahkan QR gelang berikutnya.");
-      });
     }
 
     function setScannerStatus(message) {
@@ -198,8 +126,179 @@
       if (status) status.textContent = message;
     }
 
+    // Memulai kamera belakang dengan resolusi yang cukup untuk QR gelang.
+    async function startScanner() {
+      if (isScanning || isStarting) return;
+
+      const officer = document.getElementById('officerName').value.trim();
+      if (!officer || officer.length < 2) {
+        alert("Mohon isi nama petugas terlebih dahulu!");
+        document.getElementById('officerName').focus();
+        return;
+      }
+      if (!window.Html5Qrcode) {
+        alert("Library scanner belum termuat. Periksa internet lalu muat ulang halaman.");
+        return;
+      }
+
+      isStarting = true;
+      scanSessionId++;
+      scanQueue.length = 0;
+      pendingCodes.clear();
+      updateQueueStatus();
+
+      document.getElementById('resultBox').style.display = 'none';
+      document.getElementById('reader').style.display = 'block';
+      document.getElementById('btnStartScan').style.display = 'none';
+      document.getElementById('btnStopScan').style.display = 'block';
+      setScannerStatus("Mengaktifkan kamera belakang...");
+
+      try {
+        html5QrcodeScanner = new Html5Qrcode("reader", {
+          verbose: false,
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        });
+
+        const config = {
+          fps: 18,
+          qrbox: (viewWidth, viewHeight) => {
+            const side = Math.max(180, Math.min(360, Math.floor(Math.min(viewWidth, viewHeight) * 0.82)));
+            return { width: side, height: side };
+          },
+          aspectRatio: 1.0,
+          disableFlip: true,
+          videoConstraints: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+
+        await html5QrcodeScanner.start(
+          { facingMode: "environment" },
+          config,
+          onScanSuccess,
+          onScanFailure
+        );
+
+        isScanning = true;
+        setScannerStatus("● KAMERA AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
+      } catch (err) {
+        console.error("Gagal memulai kamera:", err);
+        alert("Gagal mengakses kamera. Izinkan kamera dan buka melalui HTTPS. " + (err.message || err));
+        await stopScanner();
+      } finally {
+        isStarting = false;
+      }
+    }
+
+    async function stopScanner() {
+      scanSessionId++;
+      setScannerStatus("Scanner dihentikan.");
+      if (html5QrcodeScanner) {
+        try {
+          if (isScanning) await html5QrcodeScanner.stop();
+          html5QrcodeScanner.clear();
+        } catch (err) {
+          console.warn("Gagal menghentikan kamera:", err);
+        }
+      }
+      isScanning = false;
+      isStarting = false;
+      scanQueue.length = 0;
+      pendingCodes.clear();
+      updateQueueStatus();
+      document.getElementById('reader').style.display = 'none';
+      document.getElementById('btnStartScan').style.display = 'block';
+      document.getElementById('btnStopScan').style.display = 'none';
+    }
+
+    // Kamera tidak menunggu balasan server: QR baru masuk antrean sementara validasi berjalan.
+    function onScanSuccess(decodedText) {
+      if (!isScanning) return;
+      const qrText = String(decodedText || '').trim();
+      if (!qrText || processedCodes.has(qrText) || pendingCodes.has(qrText)) return;
+
+      const retryAfter = retryAfterByCode.get(qrText) || 0;
+      if (Date.now() < retryAfter) return;
+
+      if (scanQueue.length >= MAX_SCAN_QUEUE) {
+        setScannerStatus("ANTRIAN PENUH — TUNGGU PROSES SELESAI SEBENTAR.");
+        return;
+      }
+
+      pendingCodes.add(qrText);
+      scanQueue.push(qrText);
+      updateQueueStatus();
+      setScannerStatus("QR TERBACA — MASUK ANTRIAN VALIDASI.");
+      processScanQueue();
+    }
+
+    async function processScanQueue() {
+      if (isProcessing || !isScanning || scanQueue.length === 0) return;
+
+      const qrText = scanQueue.shift();
+      const sessionAtStart = scanSessionId;
+      isProcessing = true;
+      updateQueueStatus();
+
+      const payload = {
+        action: "scanCheckpoint",
+        pos: "3",
+        petugas: document.getElementById('officerName').value.trim(),
+        token_qr: qrText
+      };
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        let response;
+        try {
+          response = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+            cache: "no-store",
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+
+        processedCodes.add(qrText);
+        if (sessionAtStart === scanSessionId) {
+          if (data && data.success) successCount++;
+          else rejectCount++;
+          showResult(data || { success: false, message: "Respons server kosong." });
+        }
+      } catch (error) {
+        console.error("Kesalahan scan:", error);
+        retryAfterByCode.set(qrText, Date.now() + 1500);
+        if (sessionAtStart === scanSessionId) {
+          showResult({ success: false, message: "Koneksi gagal. Gelang dapat dipindai ulang setelah koneksi pulih." });
+          playAudioTone("error");
+        }
+      } finally {
+        pendingCodes.delete(qrText);
+        isProcessing = false;
+        if (sessionAtStart === scanSessionId) {
+          updateQueueStatus();
+          if (isScanning && scanQueue.length > 0) {
+            processScanQueue();
+          } else if (isScanning) {
+            setScannerStatus("● KAMERA AKTIF — SIAP SCAN BERIKUTNYA");
+          }
+        } else if (isScanning && scanQueue.length > 0) {
+          processScanQueue();
+        }
+      }
+    }
+
     function onScanFailure(error) {
-      // Abaikan error saat mencari QR di frame
+      // Frame tanpa QR adalah kondisi normal; tidak perlu menampilkan pesan.
     }
 
     // Menampilkan Hasil Validasi
@@ -233,10 +332,7 @@
       }
     }
 
-    // Antrean suara: nama peserta dibacakan satu per satu, tanpa saling memotong.
-    const speechQueue = [];
-    let isSpeakingQueue = false;
-
+    // Nama peserta dibacakan setelah server mengonfirmasi scan berhasil.
     function speakParticipantName(nama) {
       if (!('speechSynthesis' in window) || !nama) return;
       speechQueue.push(String(nama).trim());
@@ -248,12 +344,14 @@
       isSpeakingQueue = true;
       const utterance = new SpeechSynthesisUtterance(speechQueue.shift());
       utterance.lang = "id-ID";
-      utterance.rate = 1.0;
+      utterance.rate = 1.05;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
+
       const voices = window.speechSynthesis.getVoices();
-      const indoVoice = voices.find(voice => (voice.lang || "").toLowerCase().startsWith("id"));
+      const indoVoice = voices.find(v => (v.lang || "").toLowerCase().startsWith("id"));
       if (indoVoice) utterance.voice = indoVoice;
+
       utterance.onend = utterance.onerror = () => {
         isSpeakingQueue = false;
         processSpeechQueue();
