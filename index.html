@@ -91,6 +91,16 @@
       #reader video { max-height: 54vh; }
     }
 
+
+    /* URUTAN FINAL: HEADER -> KAMERA -> STATUS -> PENGATURAN PETUGAS */
+    body { display: flex; flex-direction: column; }
+    .header { order: 0; }
+    #installArea { order: 1; }
+    #reader { order: 2 !important; }
+    #scannerStatus, #queueStatus { order: 3 !important; }
+    #setupCard { order: 4 !important; }
+    #resultBox { order: 5 !important; }
+
 </style>
 </head>
 <body>
