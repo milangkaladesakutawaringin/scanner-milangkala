@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Scanner POS FINISH Cepat - Milangkala 44</title>
+  <title>Scanner POS 3 Finish - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <!-- Library QR Scanner yang Handal untuk HP -->
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -28,18 +28,40 @@
     
     .form-group { margin-bottom: 15px; }
     .form-label { display: block; font-size: 0.8rem; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
-    .form-input, .form-select { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
-    .form-input:focus, .form-select:focus { outline: none; border-color: var(--gold); }
+    .form-input { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
+    .form-input:focus { outline: none; border-color: var(--gold); }
+
+    .pos-badge {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1.5px solid rgba(251, 191, 36, 0.55);
+      background: rgba(6, 14, 36, 0.95);
+      color: var(--gold);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pos-tag {
+      font-size: 0.7rem;
+      font-weight: 800;
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
     
     .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; text-align: center; text-transform: uppercase; transition: 0.2s; }
     .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); }
     .btn-gold:active { transform: scale(0.98); }
     .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; margin-top: 10px; display: none; }
 
-    #reader { width: 100%; max-width: 500px; border-radius: 10px; overflow: hidden; border: 2px dashed var(--gold); margin-top: 15px; display: none; background:#000; }
-    #reader video { object-fit: cover !important; }
-    #reader__dashboard_section_csr button { border-radius:8px !important; padding:8px 12px !important; }
-    #scanStatus { max-width:500px; }
+    #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 2px dashed var(--gold); margin-top: 15px; display: none; }
     
     .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
     .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
@@ -61,292 +83,159 @@
 
   <div class="card" id="setupCard">
     <div class="form-group">
-      <label class="form-label">TUGAS CHECKPOINT</label>
-      <div class="form-input" style="font-weight:800;color:var(--gold);text-align:center;letter-spacing:1px;">🏁 POS FINISH</div>
-      <small style="display:block;color:#cbd5e1;margin-top:6px;">Semua gelang dipindai satu kali di pos terakhir.</small>
+      <label class="form-label">TUGAS POS CHECKPOINT</label>
+      <div class="pos-badge" id="posDisplay">
+        <span>POS 3 – FINISH</span>
+        <span class="pos-tag">Aktif</span>
+      </div>
+      <input type="hidden" id="posValue" value="3">
     </div>
     <div class="form-group">
       <label class="form-label">NAMA PETUGAS LAPANGAN</label>
-      <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS 1)" required>
+      <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS FINISH)" required>
     </div>
-    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 MULAI SCAN FINISH</button>
-    <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">HENTIKAN SCANNER</button>
+    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Buka Kamera Scanner</button>
+    <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Tutup Kamera</button>
   </div>
 
   <div id="reader"></div>
 
-  <div class="card" id="scanStatus" style="display:none;padding:12px;text-align:center;">
-    <div id="cameraStatus" style="font-weight:800;color:var(--success);">● KAMERA AKTIF — SIAP SCAN</div>
-    <div style="display:flex;justify-content:space-around;margin-top:10px;gap:8px;">
-      <div><div id="successCount" style="font-size:1.5rem;font-weight:800;color:#34d399;">0</div><small>BERHASIL</small></div>
-      <div><div id="rejectCount" style="font-size:1.5rem;font-weight:800;color:#fb7185;">0</div><small>DITOLAK</small></div>
-      <div><div id="totalCount" style="font-size:1.5rem;font-weight:800;color:var(--gold);">0</div><small>TOTAL</small></div>
-    </div>
-    <div id="queueStatus" style="margin-top:10px;font-size:.82rem;color:#fde68a;font-weight:700;">ANTRIAN SCAN: 0</div>
-  </div>
-
   <div class="card result-box" id="resultBox">
     <div class="result-title" id="resultTitle">STATUS SCAN</div>
     <div class="result-detail" id="resultDetail">Detail akan muncul di sini.</div>
-    <div style="margin-top:12px;font-size:.8rem;font-weight:700;">KAMERA TETAP AKTIF — ARAHKAN KE GELANG BERIKUTNYA</div>
+    <button class="btn btn-gold" style="margin-top:15px; padding:10px;" onclick="resetScanner()">Scan QR Lainnya</button>
   </div>
 
   <!-- Loading Overlay -->
   <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="color:var(--gold); font-weight:700;">Memvalidasi QR Code...</div>
+    <div style="color:var(--gold); font-weight:700;">Memvalidasi QR Code Finish...</div>
   </div>
 
   <script>
     /**
      * ==========================================================
-     * PENTING: TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
+     * URL WEB APP GOOGLE APPS SCRIPT
      * ==========================================================
      */
     const API_URL = "https://script.google.com/macros/s/AKfycbyrjVOusQ__ChTzgTSM8QdXSiyZl4W0H-bLfJmxgrb2JxRq_R867b4QxeBUYFODuiaSAw/exec";
 
     let html5QrcodeScanner = null;
     let isScanning = false;
-    let isProcessing = false;
-    let isStarting = false;
-    let scanSessionId = 0;
-    const processedCodes = new Set();
-    const pendingCodes = new Set();
-    const retryAfterByCode = new Map();
-    const scanQueue = [];
-    const MAX_SCAN_QUEUE = 25;
-    let successCount = 0;
-    let rejectCount = 0;
 
-    const $ = (id) => document.getElementById(id);
-
-    function updateCounters() {
-      $("successCount").textContent = successCount;
-      $("rejectCount").textContent = rejectCount;
-      $("totalCount").textContent = successCount + rejectCount;
-    }
-
-    // Scanner hanya memiliki satu tugas: POS FINISH (kode backend = 3).
-    async function startScanner() {
-      if (isScanning || isStarting) return;
-      const officer = $("officerName").value.trim();
+    // Memulai Kamera
+    function startScanner() {
+      const officer = document.getElementById('officerName').value.trim();
       if (!officer || officer.length < 2) {
         alert("Mohon isi nama petugas terlebih dahulu!");
-        $("officerName").focus();
-        return;
-      }
-      if (!window.Html5Qrcode) {
-        alert("Library scanner gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.");
         return;
       }
 
-      isStarting = true;
-      scanSessionId++;
-      scanQueue.length = 0;
-      pendingCodes.clear();
-      updateQueueStatus();
-      $("resultBox").style.display = "none";
-      $("reader").style.display = "block";
-      $("scanStatus").style.display = "block";
-      $("btnStartScan").style.display = "none";
-      $("btnStopScan").style.display = "block";
-      $("cameraStatus").textContent = "● MENGAKTIFKAN KAMERA...";
-      $("cameraStatus").style.color = "var(--gold)";
+      document.getElementById('resultBox').style.display = 'none';
+      document.getElementById('reader').style.display = 'block';
+      document.getElementById('btnStartScan').style.display = 'none';
+      document.getElementById('btnStopScan').style.display = 'block';
 
-      try {
-        // Gelang hanya memakai QR Code. Format lain dimatikan agar decoder lebih ringan.
-        html5QrcodeScanner = new Html5Qrcode("reader", {
-          verbose: false,
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+      html5QrcodeScanner = new Html5Qrcode("reader");
+
+      const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+      // Menggunakan kamera belakang (environment) secara default
+      html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+        .then(() => { isScanning = true; })
+        .catch((err) => {
+          alert("Gagal mengakses kamera. Pastikan izin kamera diberikan dan halaman dibuka lewat HTTPS. Error: " + err);
+          stopScanner();
         });
-        const config = {
-          fps: 15,
-          qrbox: (viewWidth, viewHeight) => {
-            const side = Math.max(160, Math.min(340, Math.floor(Math.min(viewWidth, viewHeight) * 0.84)));
-            return { width: side, height: side };
-          },
-          aspectRatio: 1.0
-        };
-
-        await html5QrcodeScanner.start(
-          { facingMode: "environment" },
-          config,
-          onScanSuccess,
-          onScanFailure
-        );
-        isScanning = true;
-        $("cameraStatus").textContent = "● KAMERA AKTIF — SIAP SCAN";
-        $("cameraStatus").style.color = "var(--success)";
-      } catch (err) {
-        console.error("Gagal memulai kamera:", err);
-        $("cameraStatus").textContent = "KAMERA GAGAL DIAKTIFKAN";
-        $("cameraStatus").style.color = "var(--danger)";
-        alert("Gagal mengakses kamera. Buka melalui HTTPS/GitHub Pages dan izinkan akses kamera. Detail: " + (err.message || err));
-        await stopScanner();
-      } finally {
-        isStarting = false;
-      }
     }
 
-    async function stopScanner() {
-      scanSessionId++;
-      $("cameraStatus").textContent = "SCANNER DIHENTIKAN";
-      $("cameraStatus").style.color = "#cbd5e1";
-      if (html5QrcodeScanner) {
-        try {
-          if (isScanning) await html5QrcodeScanner.stop();
+    // Menghentikan Kamera
+    function stopScanner() {
+      if (html5QrcodeScanner && isScanning) {
+        html5QrcodeScanner.stop().then(() => {
           html5QrcodeScanner.clear();
-        } catch (err) {
-          console.warn("Proses menghentikan kamera:", err);
-        }
+          isScanning = false;
+        }).catch(err => console.log(err));
       }
-      isScanning = false;
-      scanQueue.length = 0;
-      pendingCodes.clear();
-      isStarting = false;
-      updateQueueStatus();
-      $("loadingOverlay").style.display = "none";
-      $("reader").style.display = "none";
-      $("btnStartScan").style.display = "block";
-      $("btnStopScan").style.display = "none";
-      $("scanStatus").style.display = "none";
+      document.getElementById('reader').style.display = 'none';
+      document.getElementById('btnStartScan').style.display = 'block';
+      document.getElementById('btnStopScan').style.display = 'none';
     }
 
-    // Hasil kamera masuk antrean; request ke Google Sheets diproses satu per satu
-    // agar tidak saling mendahului, tetapi kamera tetap bisa membaca gelang berikutnya.
-    function onScanSuccess(decodedText) {
+    // Jika QR Berhasil Terbaca
+    function onScanSuccess(decodedText, decodedResult) {
       if (!isScanning) return;
-      const qrText = String(decodedText || "").trim();
-      if (!qrText || processedCodes.has(qrText) || pendingCodes.has(qrText)) return;
-      const retryAfter = retryAfterByCode.get(qrText) || 0;
-      if (Date.now() < retryAfter) return;
-      if (scanQueue.length >= MAX_SCAN_QUEUE) {
-        $("cameraStatus").textContent = "ANTRIAN PENUH — TUNGGU SEBENTAR";
-        $("cameraStatus").style.color = "var(--gold)";
-        return;
-      }
 
-      pendingCodes.add(qrText);
-      scanQueue.push(qrText);
-      updateQueueStatus();
-      processScanQueue();
-    }
+      // Hentikan scanner sementara agar tidak scan dua kali beruntun
+      stopScanner();
 
-    function updateQueueStatus() {
-      const waiting = scanQueue.length;
-      const active = isProcessing ? 1 : 0;
-      const el = $("queueStatus");
-      if (el) el.textContent = `ANTRIAN SCAN: ${waiting} MENUNGGU${active ? " • 1 DIPROSES" : ""}`;
-    }
+      // Tampilkan loading
+      document.getElementById('loadingOverlay').style.display = 'flex';
 
-    async function processScanQueue() {
-      if (isProcessing || !isScanning || scanQueue.length === 0) return;
-
-      const qrText = scanQueue.shift();
-      const sessionAtStart = scanSessionId;
-      isProcessing = true;
-      updateQueueStatus();
-      $("cameraStatus").textContent = "● MEMVALIDASI GELANG...";
-      $("cameraStatus").style.color = "var(--gold)";
-      // Kamera tetap terlihat selama server memvalidasi QR sebelumnya.
-      $("loadingOverlay").style.display = "none";
+      const posValue = document.getElementById('posValue').value;
+      const officerValue = document.getElementById('officerName').value.trim();
 
       const payload = {
         action: "scanCheckpoint",
-        pos: "3",
-        petugas: $("officerName").value.trim(),
-        token_qr: qrText
+        pos: posValue,
+        petugas: officerValue,
+        token_qr: decodedText
       };
 
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
-          cache: "no-store"
-        });
-        if (!response.ok) throw new Error("Server merespons HTTP " + response.status);
-        const data = await response.json();
-
-        // Simpan hasil sukses maupun penolakan agar QR yang sama tidak masuk antrean lagi.
-        processedCodes.add(qrText);
-        if (sessionAtStart === scanSessionId) {
-          if (data && data.success) successCount++;
-          else rejectCount++;
-          updateCounters();
-          showResult(data || { success: false, message: "Respons server kosong." });
-        }
-      } catch (error) {
-        console.error("Kesalahan scan:", error);
-        retryAfterByCode.set(qrText, Date.now() + 4000);
-        if (sessionAtStart === scanSessionId) {
-          showResult({
-            success: false,
-            message: "Koneksi gagal saat validasi. Gelang ini bisa dipindai ulang setelah koneksi pulih."
-          });
-          playAudioTone("error");
-        }
-      } finally {
-        pendingCodes.delete(qrText);
-        isProcessing = false;
-        if (sessionAtStart === scanSessionId) {
-          $("loadingOverlay").style.display = "none";
-          updateQueueStatus();
-          if (isScanning && scanQueue.length > 0) {
-            processScanQueue();
-          } else if (isScanning) {
-            $("cameraStatus").textContent = "● KAMERA AKTIF — SIAP SCAN BERIKUTNYA";
-            $("cameraStatus").style.color = "var(--success)";
-          }
-        } else if (isScanning && scanQueue.length > 0) {
-          // Sesi baru mungkin sudah punya antrean saat request sesi lama selesai.
-          processScanQueue();
-        }
-      }
+      // Kirim Data ke Google Apps Script (menggunakan text/plain untuk bypass CORS)
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        showResult(data);
+      })
+      .catch(error => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        showResult({ success: false, message: "Koneksi Error. Pastikan internet lancar dan URL API benar." });
+      });
     }
 
     function onScanFailure(error) {
-      // Diamkan: kegagalan decode pada frame kosong adalah kondisi normal.
+      // Abaikan error saat mencari QR di frame
     }
 
+    // Menampilkan Hasil Validasi
     function showResult(data) {
-      const box = $("resultBox");
-      const title = $("resultTitle");
-      const detail = $("resultDetail");
+      const box = document.getElementById('resultBox');
+      const title = document.getElementById('resultTitle');
+      const detail = document.getElementById('resultDetail');
 
-      box.style.display = "block";
-      box.className = "card result-box " + (data.success ? "success" : "error");
+      box.style.display = 'block';
+      box.className = 'card result-box ' + (data.success ? 'success' : 'error');
 
       if (data.success) {
         title.textContent = "✅ FINISH BERHASIL";
         detail.innerHTML = `
-          <strong>Nomor:</strong> ${escapeHtml(data.nomor || "-")}<br>
-          <strong>Nama:</strong> ${escapeHtml(data.nama || "-")}<br>
-          <strong>Status:</strong> ${escapeHtml(data.status_peserta || "LULUS")}<br>
-          <strong>Waktu:</strong> ${escapeHtml(data.waktu || "-")}
+          <strong>Pos:</strong> POS 3 – FINISH<br>
+          <strong>Nomor:</strong> ${data.nomor}<br>
+          <strong>Nama:</strong> ${data.nama}<br>
+          <strong>Status:</strong> ${data.status_peserta}<br>
+          <strong>Waktu:</strong> ${data.waktu}
         `;
-        playAudioTone("success");
+        playAudioTone('success');
       } else {
         title.textContent = "⛔ SCAN DITOLAK";
         detail.innerHTML = `
-          <strong>Alasan:</strong> ${escapeHtml(data.message || "Validasi gagal.")}<br>
-          <strong>Nomor:</strong> ${escapeHtml(data.nomor || "-")}<br>
-          <strong>Nama:</strong> ${escapeHtml(data.nama || "-")}
+          <strong>Alasan:</strong> ${data.message}<br>
+          <strong>Nomor:</strong> ${data.nomor || '-'}<br>
+          <strong>Nama:</strong> ${data.nama || '-'}
         `;
-        playAudioTone("error");
+        playAudioTone('error');
       }
     }
 
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"']/g, ch => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      }[ch]));
-    }
-
-    // Tombol lama tetap tersedia bila dipanggil dari browser/cache versi sebelumnya.
     function resetScanner() {
-      $("resultBox").style.display = "none";
-      if (!isScanning) startScanner();
+      document.getElementById('resultBox').style.display = 'none';
+      startScanner();
     }
 
     // Bunyi Beep Sederhana menggunakan Web Audio API
@@ -357,7 +246,7 @@
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        
+
         if (type === 'success') {
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, ctx.currentTime);
@@ -375,7 +264,7 @@
           osc.start(ctx.currentTime);
           osc.stop(ctx.currentTime + 0.4);
         }
-      } catch(e) { console.log("Audio not supported"); }
+      } catch (e) { console.log("Audio not supported"); }
     }
   </script>
 </body>
