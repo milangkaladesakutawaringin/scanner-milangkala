@@ -239,7 +239,7 @@
 
     function speakParticipantName(nama) {
       if (!('speechSynthesis' in window) || !nama) return;
-      speechQueue.push("Berhasil. " + String(nama));
+      speechQueue.push(String(nama).trim());
       processSpeechQueue();
     }
 
