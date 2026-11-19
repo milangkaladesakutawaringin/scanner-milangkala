@@ -126,11 +126,62 @@
     let lastScannedCode = "";
     let lastScanTime = 0;
 
+    function getScannerInstance() {
+      if (!html5QrcodeScanner) {
+        const options = { verbose: false };
+        if (window.Html5QrcodeSupportedFormats && Html5QrcodeSupportedFormats.QR_CODE) {
+          options.formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE];
+        }
+        html5QrcodeScanner = new Html5Qrcode("reader", options);
+      }
+      return html5QrcodeScanner;
+    }
+
+    async function tryStartCamera(scanner, config) {
+      const candidates = [
+        { facingMode: { ideal: "environment" } },
+        { facingMode: "environment" },
+        { facingMode: "user" }
+      ];
+
+      let lastErr = null;
+      for (const constraint of candidates) {
+        try {
+          await scanner.start(constraint, config, onScanSuccess, onScanFailure);
+          return;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      // Fallback terakhir: ambil daftar kamera perangkat dan buka yang pertama
+      if (Html5Qrcode.getCameras) {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 0) {
+          const backCam = cameras.find(c => /back|rear|environment|belakang/i.test(c.label)) || cameras[0];
+          await scanner.start(backCam.id, config, onScanSuccess, onScanFailure);
+          return;
+        }
+      }
+
+      throw lastErr || new Error("Tidak ada kamera yang terdeteksi.");
+    }
+
     // Memulai Live Scanner Cepat
-    function startScanner() {
+    async function startScanner() {
       const officer = document.getElementById('officerName').value.trim();
       if (!officer || officer.length < 2) {
         alert("Mohon isi nama petugas terlebih dahulu!");
+        return;
+      }
+
+      if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        alert("Akses kamera membutuhkan HTTPS. Pastikan URL memakai https:// (misalnya lewat GitHub Pages).");
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Browser ini tidak mendukung akses kamera langsung. Coba buka di Google Chrome atau Safari terbaru.");
         return;
       }
 
@@ -140,12 +191,7 @@
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
 
-      if (!html5QrcodeScanner) {
-        html5QrcodeScanner = new Html5Qrcode("reader", {
-          verbose: false,
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-        });
-      }
+      const scanner = getScannerInstance();
 
       const config = {
         fps: 15,
@@ -161,18 +207,22 @@
         }
       };
 
-      // Menggunakan kamera belakang (environment) secara langsung (live)
-      html5QrcodeScanner.start(
-        { facingMode: { ideal: "environment" } },
-        config,
-        onScanSuccess,
-        onScanFailure
-      )
-      .then(() => { isScanning = true; })
-      .catch((err) => {
-        alert("Gagal mengakses kamera. Pastikan izin kamera diberikan dan halaman dibuka lewat HTTPS. Error: " + err);
+      try {
+        await tryStartCamera(scanner, config);
+        isScanning = true;
+      } catch (err) {
+        const errName = (err && err.name) ? err.name : "";
+        let panduan = "";
+        if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+          panduan = "\n\nSolusi: Ketuk ikon Gembok/Setelan di address bar browser → izinkan Kamera → muat ulang halaman.";
+        } else if (errName === "NotReadableError" || errName === "TrackStartError") {
+          panduan = "\n\nSolusi: Kamera sedang dipakai aplikasi/tab lain. Tutup aplikasi kamera atau tab lain lalu coba lagi.";
+        } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
+          panduan = "\n\nSolusi: Kamera tidak terdeteksi di perangkat ini.";
+        }
+        alert("Gagal membuka kamera: " + (err && err.message ? err.message : err) + panduan);
         stopScanner();
-      });
+      }
     }
 
     // Menghentikan Kamera
