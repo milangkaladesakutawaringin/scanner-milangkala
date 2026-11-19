@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Scanner POS - Milangkala 44</title>
+  <title>Scanner POS FINISH Cepat - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <!-- Library QR Scanner yang Handal untuk HP -->
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -82,6 +82,7 @@
       <div><div id="rejectCount" style="font-size:1.5rem;font-weight:800;color:#fb7185;">0</div><small>DITOLAK</small></div>
       <div><div id="totalCount" style="font-size:1.5rem;font-weight:800;color:var(--gold);">0</div><small>TOTAL</small></div>
     </div>
+    <div id="queueStatus" style="margin-top:10px;font-size:.82rem;color:#fde68a;font-weight:700;">ANTRIAN SCAN: 0</div>
   </div>
 
   <div class="card result-box" id="resultBox">
@@ -108,9 +109,12 @@
     let isScanning = false;
     let isProcessing = false;
     let isStarting = false;
-    let lastDecodedText = "";
-    let lastDecodedAt = 0;
+    let scanSessionId = 0;
     const processedCodes = new Set();
+    const pendingCodes = new Set();
+    const retryAfterByCode = new Map();
+    const scanQueue = [];
+    const MAX_SCAN_QUEUE = 25;
     let successCount = 0;
     let rejectCount = 0;
 
@@ -137,6 +141,10 @@
       }
 
       isStarting = true;
+      scanSessionId++;
+      scanQueue.length = 0;
+      pendingCodes.clear();
+      updateQueueStatus();
       $("resultBox").style.display = "none";
       $("reader").style.display = "block";
       $("scanStatus").style.display = "block";
@@ -146,16 +154,18 @@
       $("cameraStatus").style.color = "var(--gold)";
 
       try {
-        html5QrcodeScanner = new Html5Qrcode("reader", { verbose: false });
+        // Gelang hanya memakai QR Code. Format lain dimatikan agar decoder lebih ringan.
+        html5QrcodeScanner = new Html5Qrcode("reader", {
+          verbose: false,
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        });
         const config = {
-          fps: 12,
+          fps: 15,
           qrbox: (viewWidth, viewHeight) => {
-            const side = Math.max(180, Math.min(280, Math.floor(Math.min(viewWidth, viewHeight) * 0.72)));
+            const side = Math.max(160, Math.min(340, Math.floor(Math.min(viewWidth, viewHeight) * 0.84)));
             return { width: side, height: side };
           },
-          aspectRatio: 1.0,
-          rememberLastUsedCamera: true,
-          videoConstraints: { facingMode: "environment" }
+          aspectRatio: 1.0
         };
 
         await html5QrcodeScanner.start(
@@ -179,6 +189,7 @@
     }
 
     async function stopScanner() {
+      scanSessionId++;
       $("cameraStatus").textContent = "SCANNER DIHENTIKAN";
       $("cameraStatus").style.color = "#cbd5e1";
       if (html5QrcodeScanner) {
@@ -190,30 +201,55 @@
         }
       }
       isScanning = false;
-      isProcessing = false;
+      scanQueue.length = 0;
+      pendingCodes.clear();
       isStarting = false;
+      updateQueueStatus();
+      $("loadingOverlay").style.display = "none";
       $("reader").style.display = "none";
       $("btnStartScan").style.display = "block";
       $("btnStopScan").style.display = "none";
       $("scanStatus").style.display = "none";
     }
 
-    // Kamera tidak dihentikan saat QR terbaca. Hanya proses request yang dikunci.
-    async function onScanSuccess(decodedText) {
-      if (!isScanning || isProcessing) return;
+    // Hasil kamera masuk antrean; request ke Google Sheets diproses satu per satu
+    // agar tidak saling mendahului, tetapi kamera tetap bisa membaca gelang berikutnya.
+    function onScanSuccess(decodedText) {
+      if (!isScanning) return;
       const qrText = String(decodedText || "").trim();
-      if (!qrText) return;
+      if (!qrText || processedCodes.has(qrText) || pendingCodes.has(qrText)) return;
+      const retryAfter = retryAfterByCode.get(qrText) || 0;
+      if (Date.now() < retryAfter) return;
+      if (scanQueue.length >= MAX_SCAN_QUEUE) {
+        $("cameraStatus").textContent = "ANTRIAN PENUH — TUNGGU SEBENTAR";
+        $("cameraStatus").style.color = "var(--gold)";
+        return;
+      }
 
-      const now = Date.now();
-      if (processedCodes.has(qrText)) return;
-      if (qrText === lastDecodedText && now - lastDecodedAt < 1800) return;
-      lastDecodedText = qrText;
-      lastDecodedAt = now;
+      pendingCodes.add(qrText);
+      scanQueue.push(qrText);
+      updateQueueStatus();
+      processScanQueue();
+    }
+
+    function updateQueueStatus() {
+      const waiting = scanQueue.length;
+      const active = isProcessing ? 1 : 0;
+      const el = $("queueStatus");
+      if (el) el.textContent = `ANTRIAN SCAN: ${waiting} MENUNGGU${active ? " • 1 DIPROSES" : ""}`;
+    }
+
+    async function processScanQueue() {
+      if (isProcessing || !isScanning || scanQueue.length === 0) return;
+
+      const qrText = scanQueue.shift();
+      const sessionAtStart = scanSessionId;
       isProcessing = true;
-
-      $("cameraStatus").textContent = "● MEMERIKSA GELANG...";
+      updateQueueStatus();
+      $("cameraStatus").textContent = "● MEMVALIDASI GELANG...";
       $("cameraStatus").style.color = "var(--gold)";
-      $("loadingOverlay").style.display = "flex";
+      // Kamera tetap terlihat selama server memvalidasi QR sebelumnya.
+      $("loadingOverlay").style.display = "none";
 
       const payload = {
         action: "scanCheckpoint",
@@ -232,31 +268,45 @@
         if (!response.ok) throw new Error("Server merespons HTTP " + response.status);
         const data = await response.json();
 
-        // Simpan hasil supaya QR yang masih terlihat di kamera tidak dikirim berkali-kali.
+        // Simpan hasil sukses maupun penolakan agar QR yang sama tidak masuk antrean lagi.
         processedCodes.add(qrText);
-        if (data && data.success) successCount++;
-        else rejectCount++;
-        updateCounters();
-        showResult(data || { success: false, message: "Respons server kosong." });
+        if (sessionAtStart === scanSessionId) {
+          if (data && data.success) successCount++;
+          else rejectCount++;
+          updateCounters();
+          showResult(data || { success: false, message: "Respons server kosong." });
+        }
       } catch (error) {
         console.error("Kesalahan scan:", error);
-        showResult({
-          success: false,
-          message: "Koneksi gagal. Periksa internet dan URL API, lalu pindai ulang gelang ini."
-        });
-        playAudioTone("error");
+        retryAfterByCode.set(qrText, Date.now() + 4000);
+        if (sessionAtStart === scanSessionId) {
+          showResult({
+            success: false,
+            message: "Koneksi gagal saat validasi. Gelang ini bisa dipindai ulang setelah koneksi pulih."
+          });
+          playAudioTone("error");
+        }
       } finally {
-        $("loadingOverlay").style.display = "none";
+        pendingCodes.delete(qrText);
         isProcessing = false;
-        if (isScanning) {
-          $("cameraStatus").textContent = "● KAMERA AKTIF — SIAP SCAN BERIKUTNYA";
-          $("cameraStatus").style.color = "var(--success)";
+        if (sessionAtStart === scanSessionId) {
+          $("loadingOverlay").style.display = "none";
+          updateQueueStatus();
+          if (isScanning && scanQueue.length > 0) {
+            processScanQueue();
+          } else if (isScanning) {
+            $("cameraStatus").textContent = "● KAMERA AKTIF — SIAP SCAN BERIKUTNYA";
+            $("cameraStatus").style.color = "var(--success)";
+          }
+        } else if (isScanning && scanQueue.length > 0) {
+          // Sesi baru mungkin sudah punya antrean saat request sesi lama selesai.
+          processScanQueue();
         }
       }
     }
 
     function onScanFailure(error) {
-      // Tidak perlu menampilkan error setiap frame saat QR belum terbaca.
+      // Diamkan: kegagalan decode pada frame kosong adalah kondisi normal.
     }
 
     function showResult(data) {
