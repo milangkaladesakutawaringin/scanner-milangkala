@@ -3,357 +3,330 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#04091a">
-  <title>Scanner FINISH Cepat - Milangkala 44</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <title>Scanner POS - Milangkala 44</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+  <!-- Library QR Scanner yang Handal untuk HP -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     :root {
-      --bg: #04091a;
-      --card: rgba(13, 30, 72, .96);
+      --bg-color: #04091a;
+      --card-bg: rgba(13, 30, 72, 0.95);
       --gold: #fbbf24;
       --gold-grad: linear-gradient(180deg, #ffe082 0%, #f59e0b 55%, #d97706 100%);
       --text: #f8fafc;
-      --muted: #cbd5e1;
       --success: #10b981;
       --danger: #f43f5e;
-      --line: rgba(251, 191, 36, .35);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background: radial-gradient(ellipse at top, #10234b 0%, var(--bg) 58%); color: var(--text); padding: 12px; min-height: 100vh; }
-    .wrap { width: 100%; max-width: 620px; margin: 0 auto; }
-    .header { text-align: center; padding: 12px 6px 16px; }
-    .header h1 { color: var(--gold); font-size: clamp(1.25rem, 5vw, 1.65rem); font-weight: 800; }
-    .header p { color: var(--muted); font-size: .78rem; margin-top: 6px; line-height: 1.5; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 10px 25px rgba(0,0,0,.28); }
-    .label { display: block; color: #e2e8f0; font-size: .78rem; font-weight: 800; margin-bottom: 7px; }
-    .input { width: 100%; min-height: 48px; padding: 12px; border: 1px solid rgba(56,189,248,.4); border-radius: 10px; outline: none; background: rgba(6,14,36,.95); color: #fff; font-size: 1rem; }
-    .input:focus { border-color: var(--gold); }
-    .fixed-pos { border-color: var(--gold); color: var(--gold); font-weight: 800; display: flex; align-items: center; }
-    .hint { display: block; color: var(--muted); font-size: .72rem; line-height: 1.5; margin-top: 7px; }
-    .btn { border: 0; width: 100%; min-height: 50px; border-radius: 11px; padding: 13px; font-size: .95rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
-    .btn:disabled { opacity: .55; cursor: not-allowed; }
-    .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 14px rgba(245,158,11,.22); }
-    .btn-stop { background: #1e293b; color: #fff; border: 1px solid #475569; display: none; margin-top: 9px; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .stat { background: rgba(13,30,72,.92); border: 1px solid rgba(148,163,184,.22); border-radius: 12px; padding: 11px 8px; text-align: center; }
-    .stat strong { display: block; font-size: 1.45rem; line-height: 1.25; font-variant-numeric: tabular-nums; }
-    .stat span { color: var(--muted); font-size: .68rem; font-weight: 700; }
-    .stat.ok strong { color: #6ee7b7; }
-    .stat.bad strong { color: #fda4af; }
-    .statusbar { display: flex; align-items: center; gap: 8px; background: rgba(15,23,42,.9); border: 1px solid rgba(148,163,184,.2); padding: 10px 12px; border-radius: 10px; font-size: .76rem; color: var(--muted); margin-bottom: 12px; }
-    .dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: #64748b; }
-    .dot.live { background: #34d399; box-shadow: 0 0 10px #34d399; }
-    #reader { display: none; overflow: hidden; width: 100%; border: 2px solid var(--gold); border-radius: 14px; background: #000; }
+    body { background-color: var(--bg-color); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    
+    .header { text-align: center; margin-bottom: 20px; width: 100%; max-width: 500px; }
+    .header h1 { font-size: 1.4rem; color: var(--gold); font-weight: 800; text-transform: uppercase; }
+    .header p { font-size: 0.8rem; color: #cbd5e1; margin-top: 5px; }
+
+    .card { background: var(--card-bg); border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 16px; padding: 20px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 15px; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-label { display: block; font-size: 0.8rem; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
+    .form-input, .form-select { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--gold); }
+    
+    .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; text-align: center; text-transform: uppercase; transition: 0.2s; }
+    .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); }
+    .btn-gold:active { transform: scale(0.98); }
+    .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; margin-top: 10px; display: none; }
+
+    #reader { width: 100%; max-width: 500px; border-radius: 10px; overflow: hidden; border: 2px dashed var(--gold); margin-top: 15px; display: none; background:#000; }
     #reader video { object-fit: cover !important; }
-    #reader__dashboard_section_csr button { background: #334155 !important; color: #fff !important; border: 0 !important; border-radius: 8px !important; padding: 7px 10px !important; }
-    .last { display: none; border-radius: 14px; padding: 14px; margin-bottom: 12px; border: 1px solid; }
-    .last.success { display: block; background: rgba(16,185,129,.14); border-color: var(--success); }
-    .last.error { display: block; background: rgba(244,63,94,.14); border-color: var(--danger); }
-    .last-title { font-size: 1rem; font-weight: 800; margin-bottom: 6px; }
-    .last-detail { font-size: .82rem; line-height: 1.55; overflow-wrap: anywhere; }
-    .last.success .last-title { color: #6ee7b7; }
-    .last.error .last-title { color: #fda4af; }
-    .scan-note { color: var(--muted); font-size: .72rem; text-align: center; line-height: 1.5; padding: 5px 4px 12px; }
-    .hidden { display: none !important; }
-    @media (max-width: 380px) { body { padding: 8px; } .card { padding: 12px; } .stat strong { font-size: 1.25rem; } }
+    #reader__dashboard_section_csr button { border-radius:8px !important; padding:8px 12px !important; }
+    #scanStatus { max-width:500px; }
+    
+    .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
+    .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
+    .result-box.error { background: rgba(244, 63, 94, 0.2); border-color: var(--danger); color: #fecdd3; }
+    .result-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 5px; }
+    .result-detail { font-size: 0.9rem; line-height: 1.5; }
+
+    #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 9, 26, 0.85); z-index: 999; justify-content: center; align-items: center; flex-direction: column; }
+    .spinner { width: 50px; height: 50px; border: 5px solid rgba(251, 191, 36, 0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <header class="header">
-      <h1>🏁 Scanner POS FINISH</h1>
-      <p>Milangkala Desa Kutawaringin ke-44<br>Sabtu, 26 Desember 2026 · Satu kali scan di FINISH</p>
-    </header>
 
-    <section class="card" id="setupCard">
-      <label class="label">TUGAS PETUGAS</label>
-      <div class="input fixed-pos">🏁 POS FINISH — SATU-SATUNYA CHECKPOINT</div>
-      <div style="height:13px"></div>
-      <label class="label" for="officerName">NAMA PETUGAS LAPANGAN</label>
-      <input type="text" id="officerName" class="input" placeholder="Masukkan nama petugas FINISH" autocomplete="name" required>
-      <div style="height:12px"></div>
-      <button class="btn btn-gold" id="btnStartScan" type="button">📷 MULAI SCAN</button>
-      <button class="btn btn-stop" id="btnStopScan" type="button">HENTIKAN SCANNER</button>
-      <small class="hint">Setelah kamera aktif, arahkan QR gelang ke kotak kamera. Scanner akan terus aktif dan otomatis membaca gelang berikutnya tanpa menekan tombol lagi.</small>
-    </section>
+  <div class="header">
+    <h1>Scanner Checkpoint</h1>
+    <p>Sistem Milangkala Desa Kutawaringin Ke-44</p>
+  </div>
 
-    <section class="stats" aria-live="polite">
-      <div class="stat"><strong id="totalCount">0</strong><span>TOTAL DIPROSES</span></div>
-      <div class="stat ok"><strong id="successCount">0</strong><span>BERHASIL</span></div>
-      <div class="stat bad"><strong id="rejectCount">0</strong><span>DITOLAK</span></div>
-    </section>
-
-    <div class="statusbar" role="status" aria-live="polite">
-      <span class="dot" id="statusDot"></span>
-      <span id="scanStatus">Kamera belum aktif. Isi nama petugas lalu mulai scan.</span>
+  <div class="card" id="setupCard">
+    <div class="form-group">
+      <label class="form-label">TUGAS CHECKPOINT</label>
+      <div class="form-input" style="font-weight:800;color:var(--gold);text-align:center;letter-spacing:1px;">🏁 POS FINISH</div>
+      <small style="display:block;color:#cbd5e1;margin-top:6px;">Semua gelang dipindai satu kali di pos terakhir.</small>
     </div>
+    <div class="form-group">
+      <label class="form-label">NAMA PETUGAS LAPANGAN</label>
+      <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS 1)" required>
+    </div>
+    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 MULAI SCAN FINISH</button>
+    <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">HENTIKAN SCANNER</button>
+  </div>
 
-    <div id="reader"></div>
+  <div id="reader"></div>
 
-    <section id="lastResult" class="last" aria-live="assertive">
-      <div class="last-title" id="resultTitle">HASIL SCAN</div>
-      <div class="last-detail" id="resultDetail"></div>
-    </section>
+  <div class="card" id="scanStatus" style="display:none;padding:12px;text-align:center;">
+    <div id="cameraStatus" style="font-weight:800;color:var(--success);">● KAMERA AKTIF — SIAP SCAN</div>
+    <div style="display:flex;justify-content:space-around;margin-top:10px;gap:8px;">
+      <div><div id="successCount" style="font-size:1.5rem;font-weight:800;color:#34d399;">0</div><small>BERHASIL</small></div>
+      <div><div id="rejectCount" style="font-size:1.5rem;font-weight:800;color:#fb7185;">0</div><small>DITOLAK</small></div>
+      <div><div id="totalCount" style="font-size:1.5rem;font-weight:800;color:var(--gold);">0</div><small>TOTAL</small></div>
+    </div>
+  </div>
 
-    <p class="scan-note">Tips: gunakan kamera belakang, pastikan QR tidak terlipat, dan jaga jarak kamera sekitar 10–20 cm dari QR gelang. Koneksi internet yang stabil membantu proses validasi lebih cepat.</p>
-  </main>
+  <div class="card result-box" id="resultBox">
+    <div class="result-title" id="resultTitle">STATUS SCAN</div>
+    <div class="result-detail" id="resultDetail">Detail akan muncul di sini.</div>
+    <div style="margin-top:12px;font-size:.8rem;font-weight:700;">KAMERA TETAP AKTIF — ARAHKAN KE GELANG BERIKUTNYA</div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="color:var(--gold); font-weight:700;">Memvalidasi QR Code...</div>
+  </div>
 
   <script>
-    // URL Web App Google Apps Script tetap menggunakan endpoint database Milangkala.
+    /**
+     * ==========================================================
+     * PENTING: TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
+     * ==========================================================
+     */
     const API_URL = "https://script.google.com/macros/s/AKfycbyrjVOusQ__ChTzgTSM8QdXSiyZl4W0H-bLfJmxgrb2JxRq_R867b4QxeBUYFODuiaSAw/exec";
 
-    // Backend mempertahankan kode POS 3 pada kolom lama POS3/WAKTU_POS3.
-    const FINISH_POS_VALUE = "3";
-    const SCAN_FPS = 15;
-    const SAME_QR_COOLDOWN_MS = 2500;
-    const REQUEST_TIMEOUT_MS = 15000;
-
-    let scanner = null;
+    let html5QrcodeScanner = null;
     let isScanning = false;
-    let isStarting = false;
     let isProcessing = false;
-    let audioContext = null;
-    let totalCount = 0;
+    let isStarting = false;
+    let lastDecodedText = "";
+    let lastDecodedAt = 0;
+    const processedCodes = new Set();
     let successCount = 0;
     let rejectCount = 0;
-    const recentQr = new Map();
-    const processedQr = new Set(); // Mencegah gelang yang sama dikirim berulang selama sesi scanner.
 
     const $ = (id) => document.getElementById(id);
 
-    $('btnStartScan').addEventListener('click', startScanner);
-    $('btnStopScan').addEventListener('click', stopScanner);
-
-    function setStatus(message, live = isScanning) {
-      $('scanStatus').textContent = message;
-      $('statusDot').classList.toggle('live', Boolean(live));
-    }
-
     function updateCounters() {
-      $('totalCount').textContent = String(totalCount);
-      $('successCount').textContent = String(successCount);
-      $('rejectCount').textContent = String(rejectCount);
+      $("successCount").textContent = successCount;
+      $("rejectCount").textContent = rejectCount;
+      $("totalCount").textContent = successCount + rejectCount;
     }
 
+    // Scanner hanya memiliki satu tugas: POS FINISH (kode backend = 3).
     async function startScanner() {
       if (isScanning || isStarting) return;
-      const officer = $('officerName').value.trim();
-      if (officer.length < 2) {
-        alert('Mohon isi nama petugas FINISH terlebih dahulu.');
-        $('officerName').focus();
+      const officer = $("officerName").value.trim();
+      if (!officer || officer.length < 2) {
+        alert("Mohon isi nama petugas terlebih dahulu!");
+        $("officerName").focus();
         return;
       }
       if (!window.Html5Qrcode) {
-        setStatus('Library scanner gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.', false);
+        alert("Library scanner gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.");
         return;
       }
 
       isStarting = true;
-      $('btnStartScan').disabled = true;
-      $('btnStartScan').textContent = 'MENYIAPKAN KAMERA...';
-      $('reader').style.display = 'block';
-      $('btnStartScan').style.display = 'none';
-      $('btnStopScan').style.display = 'block';
-      setStatus('Meminta akses kamera belakang...', false);
+      $("resultBox").style.display = "none";
+      $("reader").style.display = "block";
+      $("scanStatus").style.display = "block";
+      $("btnStartScan").style.display = "none";
+      $("btnStopScan").style.display = "block";
+      $("cameraStatus").textContent = "● MENGAKTIFKAN KAMERA...";
+      $("cameraStatus").style.color = "var(--gold)";
 
       try {
-        if (!scanner) {
-          const formats = window.Html5QrcodeSupportedFormats
-            ? [Html5QrcodeSupportedFormats.QR_CODE]
-            : undefined;
-          scanner = new Html5Qrcode('reader', formats ? { formatsToSupport: formats, verbose: false } : { verbose: false });
-        }
-
+        html5QrcodeScanner = new Html5Qrcode("reader", { verbose: false });
         const config = {
-          fps: SCAN_FPS,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const side = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
-            return { width: Math.max(180, Math.min(300, side)), height: Math.max(180, Math.min(300, side)) };
+          fps: 12,
+          qrbox: (viewWidth, viewHeight) => {
+            const side = Math.max(180, Math.min(280, Math.floor(Math.min(viewWidth, viewHeight) * 0.72)));
+            return { width: side, height: side };
           },
           aspectRatio: 1.0,
-          disableFlip: true
+          rememberLastUsedCamera: true,
+          videoConstraints: { facingMode: "environment" }
         };
 
-        await scanner.start(
-          { facingMode: 'environment' },
+        await html5QrcodeScanner.start(
+          { facingMode: "environment" },
           config,
           onScanSuccess,
           onScanFailure
         );
-
         isScanning = true;
-        $('btnStopScan').disabled = false;
-        setStatus('KAMERA AKTIF — ARAHKAN QR GELANG KE KOTAK SCAN.', true);
-        try {
-          audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-          if (audioContext.state === 'suspended') await audioContext.resume();
-        } catch (_) { /* Audio opsional */ }
+        $("cameraStatus").textContent = "● KAMERA AKTIF — SIAP SCAN";
+        $("cameraStatus").style.color = "var(--success)";
       } catch (err) {
-        console.error('Camera start error:', err);
-        $('reader').style.display = 'none';
-        $('btnStopScan').style.display = 'none';
-        $('btnStartScan').style.display = 'block';
-        $('btnStartScan').textContent = '📷 MULAI SCAN';
-        $('btnStartScan').disabled = false;
-        setStatus('Kamera gagal dibuka. Izinkan akses kamera dan gunakan HTTPS.', false);
-        alert('Gagal membuka kamera. Pastikan izin kamera diberikan dan halaman dibuka melalui HTTPS.\n\n' + (err && err.message ? err.message : err));
+        console.error("Gagal memulai kamera:", err);
+        $("cameraStatus").textContent = "KAMERA GAGAL DIAKTIFKAN";
+        $("cameraStatus").style.color = "var(--danger)";
+        alert("Gagal mengakses kamera. Buka melalui HTTPS/GitHub Pages dan izinkan akses kamera. Detail: " + (err.message || err));
+        await stopScanner();
       } finally {
         isStarting = false;
       }
     }
 
     async function stopScanner() {
-      if (isStarting) return;
-      $('btnStopScan').disabled = true;
-      isScanning = false;
-      try {
-        if (scanner && scanner.isScanning) {
-          await scanner.stop();
+      $("cameraStatus").textContent = "SCANNER DIHENTIKAN";
+      $("cameraStatus").style.color = "#cbd5e1";
+      if (html5QrcodeScanner) {
+        try {
+          if (isScanning) await html5QrcodeScanner.stop();
+          html5QrcodeScanner.clear();
+        } catch (err) {
+          console.warn("Proses menghentikan kamera:", err);
         }
-      } catch (err) {
-        console.warn('Stop scanner:', err);
       }
-      try {
-        if (scanner) scanner.clear();
-      } catch (_) { /* Reader sudah dibersihkan */ }
-      scanner = null;
-      $('reader').style.display = 'none';
-      $('btnStopScan').style.display = 'none';
-      $('btnStartScan').style.display = 'block';
-      $('btnStartScan').textContent = '📷 MULAI SCAN';
-      $('btnStartScan').disabled = false;
-      $('btnStopScan').disabled = false;
-      setStatus('Scanner dihentikan. Tekan MULAI SCAN untuk melanjutkan.', false);
+      isScanning = false;
+      isProcessing = false;
+      isStarting = false;
+      $("reader").style.display = "none";
+      $("btnStartScan").style.display = "block";
+      $("btnStopScan").style.display = "none";
+      $("scanStatus").style.display = "none";
     }
 
+    // Kamera tidak dihentikan saat QR terbaca. Hanya proses request yang dikunci.
     async function onScanSuccess(decodedText) {
       if (!isScanning || isProcessing) return;
-      const qr = String(decodedText || '').trim();
-      if (!qr) return;
+      const qrText = String(decodedText || "").trim();
+      if (!qrText) return;
 
-      if (processedQr.has(qr)) return; // Sudah mendapat jawaban dari server pada sesi ini.
       const now = Date.now();
-      const lastAt = recentQr.get(qr) || 0;
-      if (now - lastAt < SAME_QR_COOLDOWN_MS) return;
-
-      // Kunci sementara hanya untuk mencegah callback bertumpuk saat request berjalan.
-      // Kamera TIDAK dihentikan; QR peserta berikutnya langsung bisa dibaca.
+      if (processedCodes.has(qrText)) return;
+      if (qrText === lastDecodedText && now - lastDecodedAt < 1800) return;
+      lastDecodedText = qrText;
+      lastDecodedAt = now;
       isProcessing = true;
-      recentQr.set(qr, now);
-      setStatus('QR terbaca — sedang memvalidasi. Kamera tetap aktif.', true);
+
+      $("cameraStatus").textContent = "● MEMERIKSA GELANG...";
+      $("cameraStatus").style.color = "var(--gold)";
+      $("loadingOverlay").style.display = "flex";
 
       const payload = {
-        action: 'scanCheckpoint',
-        pos: FINISH_POS_VALUE,
-        petugas: $('officerName').value.trim(),
-        token_qr: qr
+        action: "scanCheckpoint",
+        pos: "3",
+        petugas: $("officerName").value.trim(),
+        token_qr: qrText
       };
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       try {
         const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload),
-          signal: controller.signal,
-          cache: 'no-store'
+          cache: "no-store"
         });
-        if (!response.ok) throw new Error('Server merespons HTTP ' + response.status);
+        if (!response.ok) throw new Error("Server merespons HTTP " + response.status);
         const data = await response.json();
-        processedQr.add(qr);
-        totalCount++;
+
+        // Simpan hasil supaya QR yang masih terlihat di kamera tidak dikirim berkali-kali.
+        processedCodes.add(qrText);
         if (data && data.success) successCount++;
         else rejectCount++;
         updateCounters();
-        showResult(data || { success: false, message: 'Respons server kosong.' });
-        setStatus('SIAP SCAN GELANG BERIKUTNYA.', isScanning);
-        playAudioTone(data && data.success ? 'success' : 'error');
+        showResult(data || { success: false, message: "Respons server kosong." });
       } catch (error) {
-        // Tahan QR ini selama 2,5 detik agar koneksi gagal tidak memicu request beruntun.
-        // Setelah jeda, petugas bisa mengarahkan QR yang sama untuk mencoba lagi.
-        recentQr.set(qr, Date.now());
-        totalCount++;
-        rejectCount++;
-        updateCounters();
-        const message = error && error.name === 'AbortError'
-          ? 'Waktu koneksi habis. Coba pindai ulang gelang ini.'
-          : 'Koneksi ke server gagal. Periksa internet lalu pindai ulang gelang ini.';
-        showResult({ success: false, message, nomor: qr });
-        setStatus('KONEKSI BERMASALAH — scanner tetap aktif, silakan coba lagi.', isScanning);
-        playAudioTone('error');
+        console.error("Kesalahan scan:", error);
+        showResult({
+          success: false,
+          message: "Koneksi gagal. Periksa internet dan URL API, lalu pindai ulang gelang ini."
+        });
+        playAudioTone("error");
       } finally {
-        clearTimeout(timeoutId);
+        $("loadingOverlay").style.display = "none";
         isProcessing = false;
-        // Bersihkan penanda QR lama agar Map tidak tumbuh tanpa batas saat ribuan scan.
-        const cutoff = Date.now() - 30000;
-        for (const [key, timestamp] of recentQr) {
-          if (timestamp < cutoff) recentQr.delete(key);
+        if (isScanning) {
+          $("cameraStatus").textContent = "● KAMERA AKTIF — SIAP SCAN BERIKUTNYA";
+          $("cameraStatus").style.color = "var(--success)";
         }
       }
     }
 
-    function onScanFailure(_error) {
-      // Kegagalan decode pada frame biasa diabaikan agar UI tidak berat.
+    function onScanFailure(error) {
+      // Tidak perlu menampilkan error setiap frame saat QR belum terbaca.
     }
 
     function showResult(data) {
-      const box = $('lastResult');
-      box.className = 'last ' + (data.success ? 'success' : 'error');
-      $('resultTitle').textContent = data.success ? '✅ FINISH BERHASIL' : '⛔ SCAN DITOLAK';
+      const box = $("resultBox");
+      const title = $("resultTitle");
+      const detail = $("resultDetail");
 
-      const fields = [];
-      if (data.nomor) fields.push('<strong>Nomor:</strong> ' + escapeHtml(data.nomor));
-      if (data.nama) fields.push('<strong>Nama:</strong> ' + escapeHtml(data.nama));
-      if (data.success && data.status_peserta) fields.push('<strong>Status:</strong> ' + escapeHtml(data.status_peserta));
-      if (data.waktu) fields.push('<strong>Waktu:</strong> ' + escapeHtml(data.waktu));
-      if (!data.success && data.message) fields.push('<strong>Alasan:</strong> ' + escapeHtml(data.message));
-      $('resultDetail').innerHTML = fields.join('<br>') || 'Tidak ada detail dari server.';
-    }
+      box.style.display = "block";
+      box.className = "card result-box " + (data.success ? "success" : "error");
 
-    function escapeHtml(value) {
-      return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[ch]));
-    }
-
-    function playAudioTone(type) {
-      try {
-        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioContext.state === 'suspended') audioContext.resume();
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        const start = audioContext.currentTime;
-        if (type === 'success') {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(880, start);
-          osc.frequency.exponentialRampToValueAtTime(1320, start + .09);
-          gain.gain.setValueAtTime(.22, start);
-          gain.gain.exponentialRampToValueAtTime(.001, start + .18);
-          osc.start(start);
-          osc.stop(start + .19);
-        } else {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(260, start);
-          osc.frequency.exponentialRampToValueAtTime(180, start + .13);
-          gain.gain.setValueAtTime(.20, start);
-          gain.gain.exponentialRampToValueAtTime(.001, start + .22);
-          osc.start(start);
-          osc.stop(start + .23);
-        }
-      } catch (err) {
-        console.warn('Audio tidak tersedia:', err);
+      if (data.success) {
+        title.textContent = "✅ FINISH BERHASIL";
+        detail.innerHTML = `
+          <strong>Nomor:</strong> ${escapeHtml(data.nomor || "-")}<br>
+          <strong>Nama:</strong> ${escapeHtml(data.nama || "-")}<br>
+          <strong>Status:</strong> ${escapeHtml(data.status_peserta || "LULUS")}<br>
+          <strong>Waktu:</strong> ${escapeHtml(data.waktu || "-")}
+        `;
+        playAudioTone("success");
+      } else {
+        title.textContent = "⛔ SCAN DITOLAK";
+        detail.innerHTML = `
+          <strong>Alasan:</strong> ${escapeHtml(data.message || "Validasi gagal.")}<br>
+          <strong>Nomor:</strong> ${escapeHtml(data.nomor || "-")}<br>
+          <strong>Nama:</strong> ${escapeHtml(data.nama || "-")}
+        `;
+        playAudioTone("error");
       }
     }
 
-    window.addEventListener('beforeunload', () => {
-      if (scanner && scanner.isScanning) scanner.stop().catch(() => {});
-    });
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    // Tombol lama tetap tersedia bila dipanggil dari browser/cache versi sebelumnya.
+    function resetScanner() {
+      $("resultBox").style.display = "none";
+      if (!isScanning) startScanner();
+    }
+
+    // Bunyi Beep Sederhana menggunakan Web Audio API
+    function playAudioTone(type) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        if (type === 'success') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.5, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.3);
+        } else {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(200, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.5, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.4);
+        }
+      } catch(e) { console.log("Audio not supported"); }
+    }
   </script>
 </body>
 </html>
