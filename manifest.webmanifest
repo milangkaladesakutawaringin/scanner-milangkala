@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Scanner POS FINISH - Milangkala Kutawaringin 44",
-  "short_name": "Scanner Finish",
-  "description": "Scanner gelang QR untuk panitia Jalan Santai Milangkala Desa Kutawaringin ke-44.",
+  "name": "Scan QR Gelang - Milangkala Desa Kutawaringin ke-44",
+  "short_name": "Scan QR Gelang",
+  "description": "Aplikasi panitia untuk memindai QR gelang peserta Jalan Santai Milangkala Desa Kutawaringin ke-44.",
   "lang": "id-ID",
   "start_url": "./index.html",
   "scope": "./",
