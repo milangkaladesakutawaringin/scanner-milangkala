@@ -174,15 +174,16 @@
           }
         };
 
+        // Gunakan kamera depan sesuai permintaan.
         await html5QrcodeScanner.start(
-          { facingMode: "environment" },
+          { facingMode: "user" },
           config,
           onScanSuccess,
           onScanFailure
         );
 
         isScanning = true;
-        setScannerStatus("● KAMERA AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
+        setScannerStatus("● KAMERA DEPAN AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
       } catch (err) {
         console.error("Gagal memulai kamera:", err);
         alert("Gagal mengakses kamera. Izinkan kamera dan buka melalui HTTPS. " + (err.message || err));
