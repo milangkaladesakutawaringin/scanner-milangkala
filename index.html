@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Scanner POS 3 Finish - Milangkala 44</title>
+  <title>Scanner POS - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <!-- Library QR Scanner yang Handal untuk HP -->
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -28,33 +28,8 @@
     
     .form-group { margin-bottom: 15px; }
     .form-label { display: block; font-size: 0.8rem; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
-    .form-input { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
-    .form-input:focus { outline: none; border-color: var(--gold); }
-
-    .pos-badge {
-      width: 100%;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1.5px solid rgba(251, 191, 36, 0.55);
-      background: rgba(6, 14, 36, 0.95);
-      color: var(--gold);
-      font-size: 1rem;
-      font-weight: 800;
-      letter-spacing: 0.4px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .pos-tag {
-      font-size: 0.7rem;
-      font-weight: 800;
-      background: rgba(16, 185, 129, 0.2);
-      color: #6ee7b7;
-      border: 1px solid rgba(16, 185, 129, 0.5);
-      padding: 3px 8px;
-      border-radius: 999px;
-      text-transform: uppercase;
-    }
+    .form-input, .form-select { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(56, 189, 248, 0.4); background: rgba(6, 14, 36, 0.9); color: white; font-size: 1rem; }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--gold); }
     
     .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; text-align: center; text-transform: uppercase; transition: 0.2s; }
     .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); }
@@ -77,45 +52,44 @@
 <body>
 
   <div class="header">
-    <h1>Scanner Checkpoint</h1>
+    <h1>Scanner POS FINISH</h1>
     <p>Sistem Milangkala Desa Kutawaringin Ke-44</p>
   </div>
 
   <div class="card" id="setupCard">
     <div class="form-group">
-      <label class="form-label">TUGAS POS CHECKPOINT</label>
-      <div class="pos-badge" id="posDisplay">
-        <span>POS 3 – FINISH</span>
-        <span class="pos-tag">Aktif</span>
+      <label class="form-label">LOKASI SCAN</label>
+      <div class="form-input" style="font-weight:800; color:var(--gold); text-align:center; letter-spacing:1px;">
+        🏁 POS FINISH
       </div>
-      <input type="hidden" id="posValue" value="3">
+      <input type="hidden" id="posSelect" value="3">
     </div>
     <div class="form-group">
       <label class="form-label">NAMA PETUGAS LAPANGAN</label>
-      <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS FINISH)" required>
+      <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS 1)" required>
     </div>
     <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Buka Kamera Scanner</button>
-    <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Tutup Kamera</button>
+    <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Jeda Scanner</button>
   </div>
 
   <div id="reader"></div>
 
-  <div class="card result-box" id="resultBox">
+  <div class="card result-box" id="resultBox" style="position:relative; z-index:2;">
     <div class="result-title" id="resultTitle">STATUS SCAN</div>
     <div class="result-detail" id="resultDetail">Detail akan muncul di sini.</div>
-    <button class="btn btn-gold" style="margin-top:15px; padding:10px;" onclick="resetScanner()">Scan QR Lainnya</button>
+    <button class="btn btn-gold" style="margin-top:15px; padding:10px;" onclick="dismissResult()">Lanjut Scan</button>
   </div>
 
   <!-- Loading Overlay -->
   <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="color:var(--gold); font-weight:700;">Memvalidasi QR Code Finish...</div>
+    <div style="color:var(--gold); font-weight:700;">Memvalidasi QR Code...</div>
   </div>
 
   <script>
     /**
      * ==========================================================
-     * URL WEB APP GOOGLE APPS SCRIPT
+     * PENTING: TEMPEL URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
      * ==========================================================
      */
     const API_URL = "https://script.google.com/macros/s/AKfycbyrjVOusQ__ChTzgTSM8QdXSiyZl4W0H-bLfJmxgrb2JxRq_R867b4QxeBUYFODuiaSAw/exec";
@@ -123,150 +97,71 @@
     let html5QrcodeScanner = null;
     let isScanning = false;
     let isProcessing = false;
-    let lastScannedCode = "";
-    let lastScanTime = 0;
+    let lastScannedText = '';
+    let lastScannedAt = 0;
 
-    function getScannerInstance() {
-      if (!html5QrcodeScanner) {
-        const options = { verbose: false };
-        if (window.Html5QrcodeSupportedFormats && Html5QrcodeSupportedFormats.QR_CODE) {
-          options.formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE];
-        }
-        html5QrcodeScanner = new Html5Qrcode("reader", options);
-      }
-      return html5QrcodeScanner;
-    }
-
-    async function tryStartCamera(scanner, config) {
-      const candidates = [
-        { facingMode: { ideal: "environment" } },
-        { facingMode: "environment" },
-        { facingMode: "user" }
-      ];
-
-      let lastErr = null;
-      for (const constraint of candidates) {
-        try {
-          await scanner.start(constraint, config, onScanSuccess, onScanFailure);
-          return;
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-
-      // Fallback terakhir: ambil daftar kamera perangkat dan buka yang pertama
-      if (Html5Qrcode.getCameras) {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras && cameras.length > 0) {
-          const backCam = cameras.find(c => /back|rear|environment|belakang/i.test(c.label)) || cameras[0];
-          await scanner.start(backCam.id, config, onScanSuccess, onScanFailure);
-          return;
-        }
-      }
-
-      throw lastErr || new Error("Tidak ada kamera yang terdeteksi.");
-    }
-
-    // Memulai Live Scanner Cepat
-    async function startScanner() {
+    // Memulai Kamera
+    function startScanner() {
       const officer = document.getElementById('officerName').value.trim();
       if (!officer || officer.length < 2) {
         alert("Mohon isi nama petugas terlebih dahulu!");
         return;
       }
-
-      if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-        alert("Akses kamera membutuhkan HTTPS. Pastikan URL memakai https:// (misalnya lewat GitHub Pages).");
-        return;
-      }
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Browser ini tidak mendukung akses kamera langsung. Coba buka di Google Chrome atau Safari terbaru.");
-        return;
-      }
-
-      isProcessing = false;
+      
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('reader').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
 
-      const scanner = getScannerInstance();
-
-      const config = {
-        fps: 15,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const boxSize = Math.max(180, Math.min(280, Math.floor(minEdge * 0.72)));
-          return { width: boxSize, height: boxSize };
-        },
-        aspectRatio: 1.0,
-        disableFlip: false,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      };
-
-      try {
-        await tryStartCamera(scanner, config);
-        isScanning = true;
-      } catch (err) {
-        const errName = (err && err.name) ? err.name : "";
-        let panduan = "";
-        if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
-          panduan = "\n\nSolusi: Ketuk ikon Gembok/Setelan di address bar browser → izinkan Kamera → muat ulang halaman.";
-        } else if (errName === "NotReadableError" || errName === "TrackStartError") {
-          panduan = "\n\nSolusi: Kamera sedang dipakai aplikasi/tab lain. Tutup aplikasi kamera atau tab lain lalu coba lagi.";
-        } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
-          panduan = "\n\nSolusi: Kamera tidak terdeteksi di perangkat ini.";
-        }
-        alert("Gagal membuka kamera: " + (err && err.message ? err.message : err) + panduan);
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      
+      const config = { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: true };
+      
+      // Menggunakan kamera belakang (environment) secara default
+      html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+      .then(() => { isScanning = true; })
+      .catch((err) => {
+        alert("Gagal mengakses kamera. Pastikan izin kamera diberikan. Error: " + err);
         stopScanner();
-      }
+      });
     }
 
     // Menghentikan Kamera
     function stopScanner() {
-      isScanning = false;
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop()
-          .then(() => html5QrcodeScanner.clear())
-          .catch(() => {});
+      if (html5QrcodeScanner && isScanning) {
+        html5QrcodeScanner.stop().then(() => {
+          isScanning = false;
+          try { html5QrcodeScanner.clear(); } catch (e) {}
+        }).catch(err => console.log(err));
       }
       document.getElementById('reader').style.display = 'none';
       document.getElementById('btnStartScan').style.display = 'block';
       document.getElementById('btnStopScan').style.display = 'none';
     }
 
-    // Jika QR Berhasil Terbaca secara Live
-    function onScanSuccess(decodedText) {
-      const cleanCode = (decodedText || "").trim();
-      const now = Date.now();
+    // QR terbaca: kamera tetap aktif agar petugas bisa scan peserta berikutnya.
+    function onScanSuccess(decodedText, decodedResult) {
+      if (!isScanning || isProcessing) return;
 
-      if (!isScanning || isProcessing || !cleanCode) return;
-      if (cleanCode === lastScannedCode && (now - lastScanTime) < 1500) return;
+      const now = Date.now();
+      // Cegah callback berulang dari frame yang sama dalam waktu sangat singkat.
+      if (decodedText === lastScannedText && now - lastScannedAt < 1400) return;
 
       isProcessing = true;
-      lastScannedCode = cleanCode;
-      lastScanTime = now;
+      lastScannedText = decodedText;
+      lastScannedAt = now;
 
-      // Hentikan kamera sementara saat memproses agar tidak scan berulang
-      stopScanner();
-
-      // Tampilkan loading
       document.getElementById('loadingOverlay').style.display = 'flex';
 
-      const posValue = document.getElementById('posValue').value;
       const officerValue = document.getElementById('officerName').value.trim();
-
       const payload = {
         action: "scanCheckpoint",
-        pos: posValue,
+        pos: "3",
         petugas: officerValue,
-        token_qr: cleanCode
+        token_qr: decodedText
       };
 
-      // Kirim Data ke Google Apps Script (menggunakan text/plain untuk bypass CORS)
+      // Kirim ke API dengan payload FINISH; kamera tidak dihentikan selama validasi.
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -277,13 +172,20 @@
         document.getElementById('loadingOverlay').style.display = 'none';
         showResult(data);
       })
-      .catch(() => {
+      .catch(error => {
         document.getElementById('loadingOverlay').style.display = 'none';
         showResult({ success: false, message: "Koneksi Error. Pastikan internet lancar dan URL API benar." });
+      })
+      .finally(() => {
+        // Kunci sebentar untuk mencegah satu gelang terbaca berkali-kali,
+        // lalu lanjutkan pemindaian otomatis tanpa menekan tombol lagi.
+        setTimeout(() => {
+          isProcessing = false;
+        }, 450);
       });
     }
 
-    function onScanFailure() {
+    function onScanFailure(error) {
       // Abaikan error saat mencari QR di frame
     }
 
@@ -292,14 +194,13 @@
       const box = document.getElementById('resultBox');
       const title = document.getElementById('resultTitle');
       const detail = document.getElementById('resultDetail');
-
+      
       box.style.display = 'block';
       box.className = 'card result-box ' + (data.success ? 'success' : 'error');
-
+      
       if (data.success) {
-        title.textContent = "✅ FINISH BERHASIL";
+        title.textContent = "✅ BERHASIL — POS FINISH";
         detail.innerHTML = `
-          <strong>Pos:</strong> POS 3 – FINISH<br>
           <strong>Nomor:</strong> ${data.nomor}<br>
           <strong>Nama:</strong> ${data.nama}<br>
           <strong>Status:</strong> ${data.status_peserta}<br>
@@ -317,9 +218,14 @@
       }
     }
 
-    function resetScanner() {
+    function dismissResult() {
       document.getElementById('resultBox').style.display = 'none';
-      startScanner();
+    }
+
+    // Kompatibilitas jika ada pemanggilan lama.
+    function resetScanner() {
+      dismissResult();
+      if (!isScanning) startScanner();
     }
 
     // Bunyi Beep Sederhana menggunakan Web Audio API
@@ -330,7 +236,7 @@
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-
+        
         if (type === 'success') {
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, ctx.currentTime);
@@ -348,7 +254,7 @@
           osc.start(ctx.currentTime);
           osc.stop(ctx.currentTime + 0.4);
         }
-      } catch (e) { console.log("Audio not supported"); }
+      } catch(e) { console.log("Audio not supported"); }
     }
   </script>
 </body>
