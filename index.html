@@ -173,8 +173,49 @@
     let successCount = 0;
     let rejectCount = 0;
     const speechQueue = [];
+    const QUEUE_STORAGE_KEY = "kutawaringin_pos_finish_upload_queue_v1";
+    let retryTimer = null;
 
     let isSpeakingQueue = false;
+
+    // Antrean upload disimpan di perangkat, terpisah dari status kamera.
+    function saveUploadQueue() {
+      try {
+        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(scanQueue));
+      } catch (err) {
+        console.error("Gagal menyimpan antrean lokal:", err);
+        setScannerStatus("PERINGATAN: antrean belum dapat disimpan di perangkat.");
+      }
+    }
+
+    function restoreUploadQueue() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(QUEUE_STORAGE_KEY) || "[]");
+        if (Array.isArray(saved)) {
+          saved.forEach(code => {
+            const value = String(code || "").trim();
+            if (value && !scanQueue.includes(value)) {
+              scanQueue.push(value);
+              pendingCodes.add(value);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Gagal memulihkan antrean lokal:", err);
+      }
+      updateQueueStatus();
+      if (scanQueue.length) {
+        setScannerStatus("ANTREAN TERSIMPAN DITEMUKAN — UPLOAD AKAN DILANJUTKAN.");
+        processScanQueue();
+      }
+    }
+
+    window.addEventListener("online", () => {
+      if (scanQueue.length) {
+        setScannerStatus("KONEKSI KEMBALI — MELANJUTKAN UPLOAD ANTREAN.");
+        processScanQueue();
+      }
+    });
 
     // Bunyi rana kamera singkat ("cekrek") setiap QR baru berhasil dibaca kamera.
     let scanAudioContext = null;
@@ -252,8 +293,7 @@
       prepareScanSound(); // Diaktifkan dari sentuhan tombol agar audio diizinkan browser.
       isStarting = true;
       scanSessionId++;
-      scanQueue.length = 0;
-      pendingCodes.clear();
+      // Jangan kosongkan antrean: antrean upload bisa berasal dari sesi sebelumnya.
       updateQueueStatus();
 
       document.getElementById('resultBox').style.display = 'none';
@@ -329,9 +369,9 @@
       }
       isScanning = false;
       isStarting = false;
-      scanQueue.length = 0;
-      pendingCodes.clear();
+      // Jeda hanya kamera. Antrean dan upload tetap berjalan di latar halaman.
       updateQueueStatus();
+      processScanQueue();
       document.getElementById('reader').style.display = 'none';
       document.getElementById('btnStartScan').style.display = 'block';
       document.getElementById('btnStopScan').style.display = 'none';
@@ -353,6 +393,7 @@
 
       pendingCodes.add(qrText);
       scanQueue.push(qrText);
+      saveUploadQueue();
       playScanShutter(); // Bunyi "cekrek" langsung saat QR baru terbaca.
       updateQueueStatus();
       setScannerStatus("QR TERBACA — MASUK ANTRIAN VALIDASI.");
@@ -360,10 +401,14 @@
     }
 
     async function processScanQueue() {
-      if (isProcessing || !isScanning || scanQueue.length === 0) return;
+      // Upload tidak bergantung pada kamera. Jeda scanner tidak menghentikan antrean.
+      if (isProcessing || scanQueue.length === 0) return;
+      if (!navigator.onLine) {
+        setScannerStatus("OFFLINE — ANTREAN AMAN, MENUNGGU KONEKSI.");
+        return;
+      }
 
-      const qrText = scanQueue.shift();
-      const sessionAtStart = scanSessionId;
+      const qrText = scanQueue[0]; // Jangan keluarkan dari antrean sebelum server mengonfirmasi.
       isProcessing = true;
       updateQueueStatus();
 
@@ -392,32 +437,43 @@
 
         if (!response.ok) throw new Error("HTTP " + response.status);
         const data = await response.json();
+        if (!data || typeof data.success !== "boolean") {
+          throw new Error("Respons server tidak valid; data dipertahankan dalam antrean.");
+        }
 
-        processedCodes.add(qrText);
-        if (sessionAtStart === scanSessionId) {
-          if (data && data.success) successCount++;
-          else rejectCount++;
-          showResult(data || { success: false, message: "Respons server kosong." });
-        }
-      } catch (error) {
-        console.error("Kesalahan scan:", error);
-        retryAfterByCode.set(qrText, Date.now() + 1500);
-        if (sessionAtStart === scanSessionId) {
-          showResult({ success: false, message: "Koneksi gagal. Gelang dapat dipindai ulang setelah koneksi pulih." });
-          playAudioTone("error");
-        }
-      } finally {
+        // Server sudah memberi jawaban (berhasil atau ditolak), baru keluarkan dari antrean.
+        if (scanQueue[0] === qrText) scanQueue.shift();
         pendingCodes.delete(qrText);
+        processedCodes.add(qrText);
+        retryAfterByCode.delete(qrText);
+        saveUploadQueue();
+
+        if (data.success) successCount++;
+        else rejectCount++;
+        showResult(data);
+        updateQueueStatus();
+      } catch (error) {
+        console.error("Kesalahan upload scan:", error);
+        // Jangan hapus peserta saat timeout/jaringan gagal. Coba lagi otomatis.
+        saveUploadQueue();
+        setScannerStatus("UPLOAD TERTUNDA — " + scanQueue.length +
+          " PESERTA TERSIMPAN. AKAN DICOBA KEMBALI.");
+        if (navigator.onLine) playAudioTone("error");
+      } finally {
         isProcessing = false;
-        if (sessionAtStart === scanSessionId) {
-          updateQueueStatus();
-          if (isScanning && scanQueue.length > 0) {
-            processScanQueue();
-          } else if (isScanning) {
-            setScannerStatus("● KAMERA AKTIF — SIAP SCAN BERIKUTNYA");
+        updateQueueStatus();
+
+        if (scanQueue.length > 0) {
+          if (navigator.onLine) {
+            retryTimer = setTimeout(processScanQueue, 2500);
+          } else {
+            setScannerStatus("OFFLINE — " + scanQueue.length +
+              " PESERTA TETAP TERSIMPAN, MENUNGGU KONEKSI.");
           }
-        } else if (isScanning && scanQueue.length > 0) {
-          processScanQueue();
+        } else {
+          setScannerStatus(isScanning
+            ? "● KAMERA AKTIF — SIAP SCAN BERIKUTNYA"
+            : "ANTREAN UPLOAD KOSONG — SEMUA DATA SUDAH DIPROSES.");
         }
       }
     }
@@ -522,6 +578,9 @@
         }
       } catch(e) { console.log("Audio not supported"); }
     }
+
+    // Pulihkan antrean yang belum mendapat konfirmasi server saat halaman dibuka.
+    restoreUploadQueue();
 
     // PWA: daftarkan service worker agar aplikasi dapat dipasang di layar utama.
     if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
