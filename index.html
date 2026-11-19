@@ -122,8 +122,11 @@
 
     let html5QrcodeScanner = null;
     let isScanning = false;
+    let isProcessing = false;
+    let lastScannedCode = "";
+    let lastScanTime = 0;
 
-    // Memulai Kamera
+    // Memulai Live Scanner Cepat
     function startScanner() {
       const officer = document.getElementById('officerName').value.trim();
       if (!officer || officer.length < 2) {
@@ -131,42 +134,73 @@
         return;
       }
 
+      isProcessing = false;
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('reader').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
 
-      html5QrcodeScanner = new Html5Qrcode("reader");
-
-      const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-
-      // Menggunakan kamera belakang (environment) secara default
-      html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
-        .then(() => { isScanning = true; })
-        .catch((err) => {
-          alert("Gagal mengakses kamera. Pastikan izin kamera diberikan dan halaman dibuka lewat HTTPS. Error: " + err);
-          stopScanner();
+      if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5Qrcode("reader", {
+          verbose: false,
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
         });
+      }
+
+      const config = {
+        fps: 15,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const boxSize = Math.max(180, Math.min(280, Math.floor(minEdge * 0.72)));
+          return { width: boxSize, height: boxSize };
+        },
+        aspectRatio: 1.0,
+        disableFlip: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
+      };
+
+      // Menggunakan kamera belakang (environment) secara langsung (live)
+      html5QrcodeScanner.start(
+        { facingMode: { ideal: "environment" } },
+        config,
+        onScanSuccess,
+        onScanFailure
+      )
+      .then(() => { isScanning = true; })
+      .catch((err) => {
+        alert("Gagal mengakses kamera. Pastikan izin kamera diberikan dan halaman dibuka lewat HTTPS. Error: " + err);
+        stopScanner();
+      });
     }
 
     // Menghentikan Kamera
     function stopScanner() {
-      if (html5QrcodeScanner && isScanning) {
-        html5QrcodeScanner.stop().then(() => {
-          html5QrcodeScanner.clear();
-          isScanning = false;
-        }).catch(err => console.log(err));
+      isScanning = false;
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop()
+          .then(() => html5QrcodeScanner.clear())
+          .catch(() => {});
       }
       document.getElementById('reader').style.display = 'none';
       document.getElementById('btnStartScan').style.display = 'block';
       document.getElementById('btnStopScan').style.display = 'none';
     }
 
-    // Jika QR Berhasil Terbaca
-    function onScanSuccess(decodedText, decodedResult) {
-      if (!isScanning) return;
+    // Jika QR Berhasil Terbaca secara Live
+    function onScanSuccess(decodedText) {
+      const cleanCode = (decodedText || "").trim();
+      const now = Date.now();
 
-      // Hentikan scanner sementara agar tidak scan dua kali beruntun
+      if (!isScanning || isProcessing || !cleanCode) return;
+      if (cleanCode === lastScannedCode && (now - lastScanTime) < 1500) return;
+
+      isProcessing = true;
+      lastScannedCode = cleanCode;
+      lastScanTime = now;
+
+      // Hentikan kamera sementara saat memproses agar tidak scan berulang
       stopScanner();
 
       // Tampilkan loading
@@ -179,7 +213,7 @@
         action: "scanCheckpoint",
         pos: posValue,
         petugas: officerValue,
-        token_qr: decodedText
+        token_qr: cleanCode
       };
 
       // Kirim Data ke Google Apps Script (menggunakan text/plain untuk bypass CORS)
@@ -193,13 +227,13 @@
         document.getElementById('loadingOverlay').style.display = 'none';
         showResult(data);
       })
-      .catch(error => {
+      .catch(() => {
         document.getElementById('loadingOverlay').style.display = 'none';
         showResult({ success: false, message: "Koneksi Error. Pastikan internet lancar dan URL API benar." });
       });
     }
 
-    function onScanFailure(error) {
+    function onScanFailure() {
       // Abaikan error saat mencari QR di frame
     }
 
