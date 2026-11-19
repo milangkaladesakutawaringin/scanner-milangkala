@@ -126,7 +126,7 @@
       if (status) status.textContent = message;
     }
 
-    // Memulai kamera belakang dengan resolusi yang cukup untuk QR gelang.
+    // Memulai kamera depan dengan resolusi yang cukup untuk QR gelang.
     async function startScanner() {
       if (isScanning || isStarting) return;
 
@@ -151,7 +151,7 @@
       document.getElementById('reader').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
-      setScannerStatus("Mengaktifkan kamera belakang...");
+      setScannerStatus("Mencari kamera depan...");
 
       try {
         html5QrcodeScanner = new Html5Qrcode("reader", {
@@ -167,20 +167,35 @@
           },
           aspectRatio: 1.0,
           disableFlip: true,
-          videoConstraints: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
         };
 
-        // Gunakan kamera depan sesuai permintaan.
-        await html5QrcodeScanner.start(
-          { facingMode: "user" },
-          config,
-          onScanSuccess,
-          onScanFailure
+        // Pilih perangkat kamera depan secara eksplisit berdasarkan label kamera.
+        // Ini lebih tegas daripada hanya meminta facingMode "user".
+        let cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error("Tidak ada kamera yang terdeteksi pada perangkat.");
+        }
+
+        const frontCamera = cameras.find(camera =>
+          /front|user|selfie|facetime|depan/i.test(camera.label || "")
         );
+
+        if (frontCamera) {
+          await html5QrcodeScanner.start(
+            frontCamera.id,
+            config,
+            onScanSuccess,
+            onScanFailure
+          );
+        } else {
+          // Fallback standar browser jika label kamera tidak menyebutkan "front".
+          await html5QrcodeScanner.start(
+            { facingMode: { exact: "user" } },
+            config,
+            onScanSuccess,
+            onScanFailure
+          );
+        }
 
         isScanning = true;
         setScannerStatus("● KAMERA DEPAN AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
