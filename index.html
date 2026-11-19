@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#04091a">
+  <meta name="description" content="Aplikasi scanner gelang QR POS FINISH Milangkala Desa Kutawaringin ke-44.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Scanner Finish">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <title>Scanner POS - Milangkala 44</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <!-- Library QR Scanner yang Handal untuk HP -->
@@ -54,6 +62,13 @@
   <div class="header">
     <h1>Scanner POS FINISH</h1>
     <p>Sistem Milangkala Desa Kutawaringin Ke-44</p>
+  </div>
+
+  <div id="installArea" style="width:100%;max-width:500px;margin:-8px 0 14px;display:none;">
+    <button class="btn btn-gold" id="installAppBtn" type="button">⬇️ Instal Aplikasi di HP</button>
+    <div id="installHint" style="color:#cbd5e1;font-size:.75rem;text-align:center;margin-top:7px;">
+      Pasang scanner di layar utama HP agar mudah dibuka.
+    </div>
   </div>
 
   <div class="card" id="setupCard">
@@ -461,6 +476,44 @@
         }
       } catch(e) { console.log("Audio not supported"); }
     }
+
+    // PWA: daftarkan service worker agar aplikasi dapat dipasang di layar utama.
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(err => {
+          console.warn("Service worker belum terdaftar:", err);
+        });
+      });
+    }
+
+    // Tombol instalasi tampil pada browser yang mendukung prompt instalasi.
+    let deferredInstallPrompt = null;
+    const installArea = document.getElementById("installArea");
+    const installButton = document.getElementById("installAppBtn");
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      if (installArea) installArea.style.display = "block";
+    });
+
+    if (installButton) {
+      installButton.addEventListener("click", async () => {
+        if (!deferredInstallPrompt) {
+          alert("Jika tombol instalasi tidak tersedia: buka menu Chrome (⋮), lalu pilih 'Tambahkan ke layar utama' atau 'Instal aplikasi'.");
+          return;
+        }
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        installArea.style.display = "none";
+      });
+    }
+
+    window.addEventListener("appinstalled", () => {
+      if (installArea) installArea.style.display = "none";
+      console.log("Scanner POS FINISH berhasil dipasang.");
+    });
   </script>
 </body>
 </html>
