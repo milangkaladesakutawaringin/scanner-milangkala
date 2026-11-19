@@ -1,0 +1,37 @@
+{
+  "id": "./",
+  "name": "Scanner POS FINISH - Milangkala Kutawaringin 44",
+  "short_name": "Scanner Finish",
+  "description": "Scanner gelang QR untuk panitia Jalan Santai Milangkala Desa Kutawaringin ke-44.",
+  "lang": "id-ID",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04091a",
+  "theme_color": "#04091a",
+  "categories": [
+    "utilities",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
