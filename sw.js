@@ -1,7 +1,8 @@
-const CACHE_NAME = "scan-qr-gelang-v2";
+const CACHE_NAME = "scan-qr-gelang-v4-louder";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./scan-sound.mp3",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
