@@ -115,56 +115,115 @@
     let isScanning = false;
     let isStarting = false;
     let isProcessing = false;
-    let scanSessionId = 0;
 
-    // Kamera boleh membaca QR berikutnya sambil request server diproses berurutan.
-    const QUEUE_STORAGE_KEY = "kutawaringin_scan_upload_queue_v1";
+    // Antrean disimpan di perangkat dan TIDAK dihapus saat kamera dijeda/dimatikan.
+    // Tidak ada batas buatan seperti 20 QR; kapasitas akhirnya mengikuti ruang penyimpanan browser.
+    const QUEUE_STORAGE_KEY = "kutawaringin_scan_queue_v3";
+    const PROCESSED_STORAGE_KEY = "kutawaringin_processed_codes_v3";
+    const STATS_STORAGE_KEY = "kutawaringin_scan_stats_v3";
+    const REQUEST_TIMEOUT_MS = 20000;
     const scanQueue = [];
     const pendingCodes = new Set();
-    let uploadPaused = false;
-
-    // Suara pilihan pengguna: diputar hanya saat QR baru berhasil diterima.
-    const scanSuccessSound = new Audio("./scan-sound.mp3");
-    scanSuccessSound.preload = "auto";
-    scanSuccessSound.volume = 1.0;
-    function playScanSuccessSound() {
-      try {
-        scanSuccessSound.pause();
-        scanSuccessSound.currentTime = 0;
-        const playback = scanSuccessSound.play();
-        if (playback && typeof playback.catch === "function") playback.catch(() => {});
-      } catch (e) { console.warn("Suara scan tidak dapat diputar:", e); }
-    }
-
-
-    // Pulihkan antrean jika halaman tertutup atau perangkat memuat ulang.
-    try {
-      const savedQueue = JSON.parse(localStorage.getItem(QUEUE_STORAGE_KEY) || "[]");
-      if (Array.isArray(savedQueue)) {
-        savedQueue.forEach(code => {
-          const value = String(code || "").trim();
-          if (value && !pendingCodes.has(value)) {
-            scanQueue.push(value);
-            pendingCodes.add(value);
-          }
-        });
-      }
-    } catch (e) { console.warn("Antrean lokal tidak dapat dipulihkan:", e); }
-
-    function savePendingQueue() {
-      try { localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(scanQueue)); }
-      catch (e) { console.warn("Gagal menyimpan antrean lokal:", e); }
-    }
     const processedCodes = new Set();
-    const retryAfterByCode = new Map();
-    const MAX_SCAN_QUEUE = 20;
-    const REQUEST_TIMEOUT_MS = 15000;
     let successCount = 0;
     let rejectCount = 0;
+    let retryNotBefore = 0;
+    let scanAudioContext = null;
+
+    function loadSavedData() {
+      try {
+        const savedQueue = JSON.parse(localStorage.getItem(QUEUE_STORAGE_KEY) || "[]");
+        if (Array.isArray(savedQueue)) {
+          savedQueue.forEach(item => {
+            if (item && item.qrText && !processedCodes.has(String(item.qrText))) {
+              const code = String(item.qrText);
+              if (!pendingCodes.has(code)) {
+                scanQueue.push({
+                  qrText: code,
+                  petugas: String(item.petugas || ""),
+                  addedAt: Number(item.addedAt || Date.now()),
+                  attempts: Number(item.attempts || 0)
+                });
+                pendingCodes.add(code);
+              }
+            }
+          });
+        }
+
+        const savedProcessed = JSON.parse(localStorage.getItem(PROCESSED_STORAGE_KEY) || "[]");
+        if (Array.isArray(savedProcessed)) {
+          savedProcessed.forEach(code => processedCodes.add(String(code)));
+        }
+
+        const stats = JSON.parse(localStorage.getItem(STATS_STORAGE_KEY) || "{}");
+        successCount = Number(stats.successCount || 0);
+        rejectCount = Number(stats.rejectCount || 0);
+
+        // Hapus item antrean yang ternyata sudah tercatat selesai.
+        for (let i = scanQueue.length - 1; i >= 0; i--) {
+          if (processedCodes.has(scanQueue[i].qrText)) {
+            pendingCodes.delete(scanQueue[i].qrText);
+            scanQueue.splice(i, 1);
+          }
+        }
+      } catch (err) {
+        console.warn("Tidak dapat membaca antrean tersimpan:", err);
+      }
+      updateQueueStatus();
+    }
+
+    function persistQueue() {
+      try {
+        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(scanQueue));
+        localStorage.setItem(PROCESSED_STORAGE_KEY, JSON.stringify(Array.from(processedCodes).slice(-20000)));
+        localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify({ successCount, rejectCount }));
+        return true;
+      } catch (err) {
+        console.error("Gagal menyimpan antrean di perangkat:", err);
+        setScannerStatus("PERINGATAN: PENYIMPANAN PENUH. Hentikan scan dan periksa ruang browser.");
+        return false;
+      }
+    }
+
+    // Bunyi beep pendek hanya saat QR baru diterima kamera.
+    // Tidak ada bunyi sukses/gagal dan tidak ada pembacaan nama peserta.
+    function prepareScanSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!scanAudioContext) scanAudioContext = new AudioCtx();
+        if (scanAudioContext.state === "suspended") scanAudioContext.resume();
+      } catch (err) {
+        console.warn("Audio scanner tidak tersedia:", err);
+      }
+    }
+
+    function playScanBeep() {
+      try {
+        if (!scanAudioContext) return;
+        if (scanAudioContext.state === "suspended") scanAudioContext.resume();
+        const ctx = scanAudioContext;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const now = ctx.currentTime;
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(1050, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      } catch (err) {
+        console.warn("Gagal memutar beep scan:", err);
+      }
+    }
+
     function updateQueueStatus() {
       const el = document.getElementById('queueStatus');
       if (el) {
-        el.textContent = `ANTRIAN: ${scanQueue.length}${isProcessing ? ' (1 DIPROSES)' : ''} | BERHASIL: ${successCount} | DITOLAK: ${rejectCount}`;
+        el.textContent = `ANTRIAN: ${scanQueue.length}${isProcessing ? ' (1 DIUPLOAD)' : ''} | BERHASIL: ${successCount} | DITOLAK: ${rejectCount}`;
       }
     }
 
@@ -173,7 +232,6 @@
       if (status) status.textContent = message;
     }
 
-    // Memulai kamera belakang dengan resolusi yang cukup untuk QR gelang.
     async function startScanner() {
       if (isScanning || isStarting) return;
 
@@ -188,11 +246,8 @@
         return;
       }
 
+      prepareScanSound();
       isStarting = true;
-      scanSessionId++;
-      uploadPaused = false;
-      updateQueueStatus();
-
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('reader').style.display = 'block';
       document.getElementById('btnStartScan').style.display = 'none';
@@ -208,14 +263,13 @@
         const config = {
           fps: 25,
           qrbox: (viewWidth, viewHeight) => {
-            const side = Math.max(180, Math.min(360, Math.floor(Math.min(viewWidth, viewHeight) * 0.72)));
+            const side = Math.max(200, Math.min(420, Math.floor(Math.min(viewWidth, viewHeight) * 0.86)));
             return { width: side, height: side };
           },
           aspectRatio: 1.0,
-          disableFlip: true,
+          disableFlip: true
         };
 
-        // Pilih kamera belakang secara eksplisit berdasarkan label perangkat.
         const cameras = await Html5Qrcode.getCameras();
         if (!cameras || cameras.length === 0) {
           throw new Error("Tidak ada kamera yang terdeteksi pada perangkat.");
@@ -224,28 +278,25 @@
         const rearCamera = cameras.find(camera =>
           /back|rear|environment|belakang|traseira|arrière/i.test(camera.label || "")
         );
+        const cameraConfig = rearCamera
+          ? rearCamera.id
+          : { facingMode: { ideal: "environment" } };
 
-        if (rearCamera) {
-          await html5QrcodeScanner.start(
-            rearCamera.id,
-            config,
-            onScanSuccess,
-            onScanFailure
-          );
-        } else {
-          // Fallback browser untuk perangkat yang tidak memberi label kamera.
-          await html5QrcodeScanner.start(
-            { facingMode: { ideal: "environment" } },
-            config,
-            onScanSuccess,
-            onScanFailure
-          );
+        await html5QrcodeScanner.start(cameraConfig, config, onScanSuccess, onScanFailure);
+        isScanning = true;
+
+        // Usahakan autofocus berkelanjutan pada perangkat yang mendukungnya.
+        try {
+          await html5QrcodeScanner.applyVideoConstraints({
+            advanced: [{ focusMode: "continuous" }]
+          });
+        } catch (focusErr) {
+          console.info("Mode autofocus berkelanjutan tidak didukung kamera ini.");
         }
 
-        isScanning = true;
-        uploadPaused = false;
+        setScannerStatus("● KAMERA AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
+        // Upload antrean lama tetap berjalan meskipun scanner baru saja dinyalakan.
         processScanQueue();
-        setScannerStatus("● KAMERA BELAKANG AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
       } catch (err) {
         console.error("Gagal memulai kamera:", err);
         alert("Gagal mengakses kamera. Izinkan kamera dan buka melalui HTTPS. " + (err.message || err));
@@ -256,8 +307,7 @@
     }
 
     async function stopScanner() {
-      scanSessionId++;
-      setScannerStatus("Scanner dihentikan.");
+      setScannerStatus("KAMERA DIHENTIKAN — ANTREAN TETAP TERSIMPAN DAN UPLOAD DILANJUTKAN.");
       if (html5QrcodeScanner) {
         try {
           if (isScanning) await html5QrcodeScanner.stop();
@@ -268,100 +318,113 @@
       }
       isScanning = false;
       isStarting = false;
+      // PENTING: jangan kosongkan scanQueue atau pendingCodes di sini.
+      persistQueue();
       updateQueueStatus();
       document.getElementById('reader').style.display = 'none';
       document.getElementById('btnStartScan').style.display = 'block';
       document.getElementById('btnStopScan').style.display = 'none';
+      processScanQueue();
     }
 
-    // Kamera tidak menunggu balasan server: QR baru masuk antrean sementara validasi berjalan.
     function onScanSuccess(decodedText) {
       if (!isScanning) return;
       const qrText = String(decodedText || '').trim();
       if (!qrText || processedCodes.has(qrText) || pendingCodes.has(qrText)) return;
 
-      const retryAfter = retryAfterByCode.get(qrText) || 0;
-      if (Date.now() < retryAfter) return;
+      const officer = document.getElementById('officerName').value.trim();
+      const queueItem = {
+        qrText,
+        petugas: officer,
+        addedAt: Date.now(),
+        attempts: 0
+      };
 
-      if (scanQueue.length >= MAX_SCAN_QUEUE) {
-        setScannerStatus("ANTRIAN PENUH — TUNGGU PROSES SELESAI SEBENTAR.");
-        return;
+      // Simpan ke penyimpanan lokal SEBELUM memulai upload.
+      scanQueue.push(queueItem);
+      pendingCodes.add(qrText);
+      if (!persistQueue()) {
+        // Jangan hilangkan item dari memori; beri peringatan agar petugas tahu.
+        setScannerStatus("QR TERBACA, TETAPI PENYIMPANAN GAGAL. Periksa ruang browser.");
+      } else {
+        setScannerStatus("QR TERBACA — TERSIMPAN, MENUNGGU/SEDANG DIUPLOAD.");
       }
 
-      pendingCodes.add(qrText);
-      playScanSuccessSound();
-      scanQueue.push(qrText);
-      savePendingQueue();
+      playScanBeep();
       updateQueueStatus();
-      setScannerStatus("QR TERBACA — MASUK ANTRIAN VALIDASI.");
       processScanQueue();
     }
 
+    // Worker upload tetap aktif walau kamera dijeda atau dimatikan.
+    // Upload satu per satu agar urutan request ke Google Apps Script tetap aman.
     async function processScanQueue() {
-      if (isProcessing || uploadPaused || scanQueue.length === 0) return;
-
-      const qrText = scanQueue.shift();
-      savePendingQueue();
-      const sessionAtStart = scanSessionId;
+      if (isProcessing || scanQueue.length === 0) return;
+      if (Date.now() < retryNotBefore) return;
       isProcessing = true;
       updateQueueStatus();
 
-      const payload = {
-        action: "scanCheckpoint",
-        pos: "3",
-        petugas: document.getElementById('officerName').value.trim(),
-        token_qr: qrText
-      };
+      while (scanQueue.length > 0) {
+        const item = scanQueue[0];
+        const payload = {
+          action: "scanCheckpoint",
+          pos: "3",
+          petugas: item.petugas,
+          token_qr: item.qrText
+        };
 
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-        let response;
         try {
-          response = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(payload),
-            cache: "no-store",
-            signal: controller.signal
-          });
-        } finally {
-          clearTimeout(timeoutId);
-        }
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+          let response;
+          try {
+            response = await fetch(API_URL, {
+              method: "POST",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify(payload),
+              cache: "no-store",
+              signal: controller.signal
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        const data = await response.json();
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          const data = await response.json();
 
-        processedCodes.add(qrText);
-        if (sessionAtStart === scanSessionId) {
+          // Respons JSON dari server berarti request sudah diproses, baik diterima maupun ditolak.
+          scanQueue.shift();
+          pendingCodes.delete(item.qrText);
+          processedCodes.add(item.qrText);
           if (data && data.success) successCount++;
           else rejectCount++;
-          showResult(data || { success: false, message: "Respons server kosong." });
-        }
-      } catch (error) {
-        console.error("Kesalahan scan:", error);
-        retryAfterByCode.set(qrText, Date.now() + 1500);
-        scanQueue.unshift(qrText);
-        pendingCodes.add(qrText);
-        savePendingQueue();
-        uploadPaused = true;
-        if (sessionAtStart === scanSessionId) {
-          showResult({ success: false, message: "Koneksi gagal. Data tetap disimpan dalam antrean. Mulai ulang scanner untuk mencoba upload kembali." });
-        }
-      } finally {
-        if (!uploadPaused) pendingCodes.delete(qrText);
-        savePendingQueue();
-        isProcessing = false;
-        if (sessionAtStart === scanSessionId) {
+          persistQueue();
           updateQueueStatus();
-          if (isScanning && scanQueue.length > 0) {
+          showResult(data || { success: false, message: "Respons server kosong." });
+        } catch (error) {
+          console.error("Upload gagal; data tetap berada di antrean:", error);
+          item.attempts = Number(item.attempts || 0) + 1;
+          persistQueue();
+          setScannerStatus(`UPLOAD TERTUNDA — ${scanQueue.length} DATA TERSIMPAN. Mencoba kembali otomatis.`);
+          updateQueueStatus();
+
+          // Retry bertahap agar tidak membanjiri Google Apps Script saat jaringan/server bermasalah.
+          const retryDelay = Math.min(30000, 1500 * Math.pow(2, Math.min(item.attempts - 1, 4)));
+          retryNotBefore = Date.now() + retryDelay;
+          isProcessing = false;
+          setTimeout(() => {
+            retryNotBefore = 0;
             processScanQueue();
-          } else if (isScanning) {
-            setScannerStatus("● KAMERA AKTIF — SIAP SCAN BERIKUTNYA");
-          }
-        } else if (isScanning && scanQueue.length > 0) {
-          processScanQueue();
+          }, retryDelay);
+          return;
         }
+      }
+
+      isProcessing = false;
+      updateQueueStatus();
+      if (isScanning) {
+        setScannerStatus("● KAMERA AKTIF — SIAP SCAN BERIKUTNYA");
+      } else {
+        setScannerStatus("KAMERA MATI — SEMUA ANTREAN SUDAH DIUPLOAD.");
       }
     }
 
@@ -369,15 +432,15 @@
       // Frame tanpa QR adalah kondisi normal; tidak perlu menampilkan pesan.
     }
 
-    // Menampilkan Hasil Validasi
+    // Menampilkan hasil validasi tanpa suara sukses/gagal dan tanpa membacakan nama.
     function showResult(data) {
       const box = document.getElementById('resultBox');
       const title = document.getElementById('resultTitle');
       const detail = document.getElementById('resultDetail');
-      
+
       box.style.display = 'block';
       box.className = 'card result-box ' + (data.success ? 'success' : 'error');
-      
+
       if (data.success) {
         title.textContent = "✅ BERHASIL — POS FINISH";
         detail.innerHTML = `
@@ -395,6 +458,19 @@
         `;
       }
     }
+
+    function dismissResult() {
+      document.getElementById('resultBox').style.display = 'none';
+    }
+
+    function resetScanner() {
+      dismissResult();
+      if (!isScanning) startScanner();
+    }
+
+    // Pulihkan antrean dari penyimpanan lokal saat halaman dibuka kembali.
+    loadSavedData();
+    processScanQueue();
 
     // PWA: daftarkan service worker agar aplikasi dapat dipasang di layar utama.
     if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
