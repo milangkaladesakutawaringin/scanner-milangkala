@@ -14,7 +14,7 @@
   <title>Scan QR Gelang</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
   <!-- Library QR Scanner yang Handal untuk HP -->
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="./vendor/html5-qrcode.min.js"></script>
   <style>
     :root {
       --bg-color: #04091a;
@@ -88,7 +88,8 @@
   </div>
 
   <div id="reader"></div>
-  <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:8px 0 6px;">Scanner belum aktif.</div>
+  <div id="networkStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;font-weight:800;margin:8px 0 4px;">MEMERIKSA KONEKSI…</div>
+  <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:4px 0 6px;">Scanner belum aktif.</div>
   <div id="queueStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;margin-bottom:12px;">ANTRIAN: 0 | BERHASIL: 0 | DITOLAK: 0</div>
 
   <div class="card result-box" id="resultBox" style="position:relative; z-index:2;">
@@ -232,9 +233,30 @@
       if (status) status.textContent = message;
     }
 
+    async function ensureLocalStorageReady() {
+      // Minta browser mempertahankan data antrean walau ruang penyimpanan sedang dibersihkan.
+      // Persetujuan persistensi bergantung pada kebijakan browser/perangkat.
+      try {
+        if (navigator.storage && navigator.storage.persist) {
+          await navigator.storage.persist();
+        }
+        const testKey = "kutawaringin_storage_test";
+        localStorage.setItem(testKey, "ok");
+        if (localStorage.getItem(testKey) !== "ok") throw new Error("Penyimpanan lokal tidak dapat diverifikasi.");
+        localStorage.removeItem(testKey);
+        return true;
+      } catch (err) {
+        console.error("Penyimpanan lokal tidak siap:", err);
+        alert("PENYIMPANAN HP TIDAK SIAP. Scan dibatalkan agar data peserta tidak hilang. Periksa ruang penyimpanan browser dan coba lagi.");
+        setScannerStatus("GAGAL: PENYIMPANAN LOKAL TIDAK TERSEDIA — SCAN TIDAK DIMULAI.");
+        return false;
+      }
+    }
+
     async function startScanner() {
       if (isScanning || isStarting) return;
 
+      if (!(await ensureLocalStorageReady())) return;
       const officer = document.getElementById('officerName').value.trim();
       if (!officer || officer.length < 2) {
         alert("Mohon isi nama petugas terlebih dahulu!");
@@ -242,7 +264,7 @@
         return;
       }
       if (!window.Html5Qrcode) {
-        alert("Library scanner belum termuat. Periksa internet lalu muat ulang halaman.");
+        alert("Library scanner offline belum tersedia. Saat masih online, pastikan file vendor/html5-qrcode.min.js sudah ada di GitHub, buka aplikasi sekali sampai terpasang, lalu coba lagi.");
         return;
       }
 
@@ -357,12 +379,16 @@
       scanQueue.push(queueItem);
       pendingCodes.add(qrText);
       if (!persistQueue()) {
-        // Jangan hilangkan item dari memori; beri peringatan agar petugas tahu.
-        setScannerStatus("QR TERBACA, TETAPI PENYIMPANAN GAGAL. Periksa ruang browser.");
-      } else {
-        setScannerStatus("✓ QR " + qrText + " TERTANGKAP — MASUK ANTREAN, DATABASE SEDANG DIPROSES.");
+        // Hentikan pemindaian segera. Jangan lanjut menerima gelang saat antrean lokal gagal disimpan.
+        setScannerStatus("BAHAYA: QR " + qrText + " TERTANGKAP TETAPI GAGAL DISIMPAN. SCANNER DIHENTIKAN.");
+        updateQueueStatus();
+        stopScanner();
+        alert("Penyimpanan lokal gagal. Scanner dihentikan untuk mencegah scan berikutnya terlewat. Periksa ruang HP/browser. QR terakhir: " + qrText + ". Catat nomor ini dan verifikasi sebelum melanjutkan.");
+        return;
       }
 
+      // Beep berarti QR sudah masuk antrean lokal, bukan berarti sudah masuk Google Sheets.
+      setScannerStatus("✓ QR " + qrText + " AMAN DI ANTREAN HP — " + (navigator.onLine ? "MENUNGGU UPLOAD" : "OFFLINE, AKAN DIUPLOAD SAAT ONLINE"));
       playScanBeep();
       updateQueueStatus();
       processScanQueue();
@@ -372,6 +398,11 @@
     // Upload satu per satu agar urutan request ke Google Apps Script tetap aman.
     async function processScanQueue() {
       if (isProcessing || scanQueue.length === 0) return;
+      if (!navigator.onLine) {
+        setScannerStatus("OFFLINE — " + scanQueue.length + " QR TERSIMPAN DI HP. UPLOAD OTOMATIS SAAT INTERNET KEMBALI.");
+        updateQueueStatus();
+        return;
+      }
       if (Date.now() < retryNotBefore) return;
       isProcessing = true;
       updateQueueStatus();
@@ -480,6 +511,30 @@
       dismissResult();
       if (!isScanning) startScanner();
     }
+
+    function updateNetworkStatus() {
+      const el = document.getElementById("networkStatus");
+      if (!el) return;
+      if (navigator.onLine) {
+        el.textContent = "● INTERNET TERSEDIA — ANTREAN AKAN DIUPLOAD";
+        el.style.color = "#34d399";
+      } else {
+        el.textContent = "● MODE OFFLINE — SCAN TETAP TERSIMPAN DI HP";
+        el.style.color = "#fbbf24";
+      }
+    }
+
+    window.addEventListener("online", () => {
+      updateNetworkStatus();
+      retryNotBefore = 0;
+      setScannerStatus("INTERNET KEMBALI — MENGIRIM ANTREAN LAMA TERLEBIH DAHULU.");
+      processScanQueue();
+    });
+    window.addEventListener("offline", () => {
+      updateNetworkStatus();
+      setScannerStatus("INTERNET TERPUTUS — SCAN BARU TETAP DISIMPAN LOKAL. UPLOAD MENUNGGU.");
+    });
+    updateNetworkStatus();
 
     // Pulihkan antrean dari penyimpanan lokal saat halaman dibuka kembali.
     loadSavedData();
