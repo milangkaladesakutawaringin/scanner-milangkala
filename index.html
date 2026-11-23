@@ -44,7 +44,28 @@
     .btn-gold:active { transform: scale(0.98); }
     .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; margin-top: 10px; display: none; }
 
-    #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 2px dashed var(--gold); margin-top: 15px; display: none; }
+    
+#reader {
+  width: min(100%, 500px);
+  aspect-ratio: 1 / 1;
+  height: auto;
+  max-height: 92vw;
+  margin: 15px auto 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px dashed var(--gold);
+  display: none;
+  position: relative;
+  background: #000;
+}
+
+#reader video,
+#reader canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
     
     .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
     .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
