@@ -261,9 +261,10 @@
         });
 
         const config = {
-          fps: 25,
+          // FPS moderat membantu decoding stabil pada HP kelas menengah.
+          fps: 20,
           qrbox: (viewWidth, viewHeight) => {
-            const side = Math.max(200, Math.min(420, Math.floor(Math.min(viewWidth, viewHeight) * 0.86)));
+            const side = Math.max(220, Math.min(360, Math.floor(Math.min(viewWidth, viewHeight) * 0.78)));
             return { width: side, height: side };
           },
           aspectRatio: 1.0,
@@ -285,16 +286,28 @@
         await html5QrcodeScanner.start(cameraConfig, config, onScanSuccess, onScanFailure);
         isScanning = true;
 
-        // Usahakan autofocus berkelanjutan pada perangkat yang mendukungnya.
+        // Optimalkan ketajaman gambar dan autofocus jika didukung perangkat.
         try {
           await html5QrcodeScanner.applyVideoConstraints({
-            advanced: [{ focusMode: "continuous" }]
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          });
+        } catch (resolutionErr) {
+          console.info("Resolusi kamera default digunakan pada perangkat ini.");
+        }
+        try {
+          await html5QrcodeScanner.applyVideoConstraints({
+            advanced: [
+              { focusMode: "continuous" },
+              { exposureMode: "continuous" },
+              { whiteBalanceMode: "continuous" }
+            ]
           });
         } catch (focusErr) {
-          console.info("Mode autofocus berkelanjutan tidak didukung kamera ini.");
+          console.info("Autofocus kontinu tidak didukung; kamera memakai fokus otomatis bawaan.");
         }
 
-        setScannerStatus("● KAMERA AKTIF — ARAHKAN QR GELANG BERIKUTNYA");
+        setScannerStatus("● KAMERA AKTIF — AUTOFOCUS AKTIF, ARAHKAN QR GELANG KE KOTAK SCAN");
         // Upload antrean lama tetap berjalan meskipun scanner baru saja dinyalakan.
         processScanQueue();
       } catch (err) {
@@ -347,7 +360,7 @@
         // Jangan hilangkan item dari memori; beri peringatan agar petugas tahu.
         setScannerStatus("QR TERBACA, TETAPI PENYIMPANAN GAGAL. Periksa ruang browser.");
       } else {
-        setScannerStatus("QR TERBACA — TERSIMPAN, MENUNGGU/SEDANG DIUPLOAD.");
+        setScannerStatus("✓ QR " + qrText + " TERTANGKAP — MASUK ANTREAN, DATABASE SEDANG DIPROSES.");
       }
 
       playScanBeep();
