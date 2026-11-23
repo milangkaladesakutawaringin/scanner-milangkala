@@ -138,8 +138,7 @@
 
   <div class="card result-box" id="resultBox" style="position:relative; z-index:2;">
     <div class="result-title" id="resultTitle">STATUS SCAN</div>
-    <div class="result-detail" id="resultDetail">Detail akan muncul di sini.</div>
-    <button class="btn btn-gold" style="margin-top:15px; padding:10px;" onclick="dismissResult()">Lanjut Scan</button>
+    <div class="result-detail" id="resultDetail" style="display:none;"></div>
   </div>
 
   <!-- Loading Overlay -->
@@ -718,7 +717,7 @@
       // Frame tanpa QR adalah kondisi normal; tidak perlu menampilkan pesan.
     }
 
-    // Menampilkan hasil validasi tanpa suara sukses/gagal dan tanpa membacakan nama.
+    // Notifikasi sukses dibuat singkat: hanya tulisan BERHASIL, tanpa detail dan tombol.
     function showResult(data) {
       const box = document.getElementById('resultBox');
       const title = document.getElementById('resultTitle');
@@ -728,15 +727,18 @@
       box.className = 'card result-box ' + (data.success ? 'success' : 'error');
 
       if (data.success) {
-        title.textContent = "✅ BERHASIL — POS FINISH";
-        detail.innerHTML = `
-          <strong>Nomor:</strong> ${data.nomor}<br>
-          <strong>Nama:</strong> ${data.nama}<br>
-          <strong>Status:</strong> ${data.status_peserta}<br>
-          <strong>Waktu:</strong> ${data.waktu}
-        `;
+        title.textContent = "✅ BERHASIL";
+        detail.textContent = "";
+        detail.style.display = "none";
+
+        // Hilangkan notifikasi otomatis; proses scan tetap berjalan.
+        clearTimeout(window.scanSuccessNoticeTimer);
+        window.scanSuccessNoticeTimer = setTimeout(() => {
+          box.style.display = 'none';
+        }, 1800);
       } else {
         title.textContent = "⛔ SCAN DITOLAK";
+        detail.style.display = "block";
         detail.innerHTML = `
           <strong>Alasan:</strong> ${data.message}<br>
           <strong>Nomor:</strong> ${data.nomor || '-'}<br>
