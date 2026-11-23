@@ -168,6 +168,34 @@
     const QUEUE_STORAGE_KEY = "kutawaringin_scan_queue_v3";
     const PROCESSED_STORAGE_KEY = "kutawaringin_processed_codes_v3";
     const STATS_STORAGE_KEY = "kutawaringin_scan_stats_v3";
+    const OFFICER_NAME_STORAGE_KEY = "kutawaringin_officer_name_v1";
+
+    // Simpan nama petugas di perangkat agar tidak perlu diinput ulang setelah refresh.
+    function restoreOfficerName() {
+      const field = document.getElementById("officerName");
+      if (!field) return;
+      try {
+        const savedName = localStorage.getItem(OFFICER_NAME_STORAGE_KEY) || "";
+        if (savedName) field.value = savedName;
+        field.addEventListener("input", () => {
+          try {
+            localStorage.setItem(OFFICER_NAME_STORAGE_KEY, field.value.trim());
+          } catch (err) {
+            console.warn("Nama petugas tidak dapat disimpan di perangkat:", err);
+          }
+        });
+        field.addEventListener("change", () => {
+          try {
+            localStorage.setItem(OFFICER_NAME_STORAGE_KEY, field.value.trim());
+          } catch (err) {
+            console.warn("Nama petugas tidak dapat disimpan di perangkat:", err);
+          }
+        });
+      } catch (err) {
+        console.warn("Penyimpanan nama petugas tidak tersedia:", err);
+      }
+    }
+
     const REQUEST_TIMEOUT_MS = 20000;
     const scanQueue = [];
     const pendingCodes = new Set();
@@ -779,6 +807,9 @@
       setScannerStatus("INTERNET TERPUTUS — SCAN BARU TETAP DISIMPAN LOKAL. UPLOAD MENUNGGU.");
     });
     updateNetworkStatus();
+
+    // Pulihkan nama petugas lebih dulu agar identitas petugas siap saat scan dimulai.
+    restoreOfficerName();
 
     // Pulihkan antrean dari penyimpanan lokal saat halaman dibuka kembali.
     loadSavedData();
