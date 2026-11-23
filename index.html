@@ -43,29 +43,26 @@
     .btn-gold { background: var(--gold-grad); color: #08122c; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); }
     .btn-gold:active { transform: scale(0.98); }
     .btn-stop { background: #1e293b; color: white; border: 1.5px solid #475569; margin-top: 10px; display: none; }
+    .btn:disabled { opacity: .65; cursor: wait; }
 
-    
-#reader {
-  width: min(100%, 500px);
-  aspect-ratio: 1 / 1;
-  height: auto;
-  max-height: 92vw;
-  margin: 15px auto 0;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 2px dashed var(--gold);
-  display: none;
-  position: relative;
-  background: #000;
-}
-
-#reader video,
-#reader canvas {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
+    #reader {
+      width: min(100%, 500px);
+      aspect-ratio: 1 / 1;
+      height: auto;
+      max-height: 92vw;
+      margin: 15px auto 0;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px dashed var(--gold);
+      display: none;
+      position: relative;
+      background: #000;
+    }
+    #reader video, #reader canvas {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
     
     .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
     .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
@@ -104,7 +101,10 @@
       <label class="form-label">NAMA PETUGAS LAPANGAN</label>
       <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS 1)" required>
     </div>
-    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Buka Kamera Scanner</button>
+    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Scan Live</button>
+    <button class="btn btn-gold" id="btnPhotoScan" type="button" onclick="openPhotoCapture()" style="margin-top:10px;">📸 Scan Foto — Satu Gelang</button>
+    <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
+    <div id="photoReader" style="display:none;width:1px;height:1px;overflow:hidden;"></div>
     <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Jeda Scanner</button>
   </div>
 
@@ -134,8 +134,10 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbyrjVOusQ__ChTzgTSM8QdXSiyZl4W0H-bLfJmxgrb2JxRq_R867b4QxeBUYFODuiaSAw/exec";
 
     let html5QrcodeScanner = null;
+    let photoQrReader = null;
     let isScanning = false;
     let isStarting = false;
+    let isPhotoProcessing = false;
     let isProcessing = false;
 
     // Antrean disimpan di perangkat dan TIDAK dihapus saat kamera dijeda/dimatikan.
@@ -385,8 +387,18 @@
 
     function onScanSuccess(decodedText) {
       if (!isScanning) return;
+      enqueueDecodedQr(decodedText, "LIVE");
+    }
+
+    // Kedua mode (LIVE dan FOTO) memakai antrean lokal yang sama.
+    function enqueueDecodedQr(decodedText, sourceMode) {
       const qrText = String(decodedText || '').trim();
-      if (!qrText || processedCodes.has(qrText) || pendingCodes.has(qrText)) return;
+      if (!qrText || processedCodes.has(qrText) || pendingCodes.has(qrText)) {
+        if (sourceMode === "FOTO") {
+          setScannerStatus("QR SUDAH PERNAH MASUK / SEDANG DIANTREKAN — FOTO GELANG BERIKUTNYA.");
+        }
+        return false;
+      }
 
       const officer = document.getElementById('officerName').value.trim();
       const queueItem = {
@@ -396,27 +408,99 @@
         attempts: 0
       };
 
-      // Simpan ke penyimpanan lokal SEBELUM memulai upload.
       scanQueue.push(queueItem);
       pendingCodes.add(qrText);
       if (!persistQueue()) {
-        // Hentikan pemindaian segera. Jangan lanjut menerima gelang saat antrean lokal gagal disimpan.
-        setScannerStatus("BAHAYA: QR " + qrText + " TERTANGKAP TETAPI GAGAL DISIMPAN. SCANNER DIHENTIKAN.");
+        setScannerStatus("BAHAYA: QR " + qrText + " TERTANGKAP TETAPI GAGAL DISIMPAN. HENTIKAN SCAN.");
         updateQueueStatus();
-        stopScanner();
-        alert("Penyimpanan lokal gagal. Scanner dihentikan untuk mencegah scan berikutnya terlewat. Periksa ruang HP/browser. QR terakhir: " + qrText + ". Catat nomor ini dan verifikasi sebelum melanjutkan.");
-        return;
+        if (sourceMode === "LIVE") stopScanner();
+        alert("Penyimpanan lokal gagal. QR " + qrText + " belum dapat dipastikan tersimpan. Hentikan scan, periksa ruang penyimpanan HP, lalu verifikasi nomor ini.");
+        return false;
       }
 
-      // Beep berarti QR sudah masuk antrean lokal, bukan berarti sudah masuk Google Sheets.
-      setScannerStatus("✓ QR " + qrText + " AMAN DI ANTREAN HP — " + (navigator.onLine ? "MENUNGGU UPLOAD" : "OFFLINE, AKAN DIUPLOAD SAAT ONLINE"));
+      setScannerStatus("✓ QR " + qrText + " AMAN DI ANTREAN HP — " +
+        (navigator.onLine ? "MENUNGGU UPLOAD" : "OFFLINE, AKAN DIUPLOAD SAAT ONLINE"));
       playScanBeep();
       updateQueueStatus();
       processScanQueue();
+      return true;
     }
 
-    // Worker upload tetap aktif walau kamera dijeda atau dimatikan.
-    // Upload satu per satu agar urutan request ke Google Apps Script tetap aman.
+    // MODE FOTO: ambil satu foto gelang, lalu baca QR dari file gambar secara lokal.
+    function openPhotoCapture() {
+      if (isScanning || isStarting) {
+        alert("Jeda Scan Live terlebih dahulu sebelum menggunakan Scan Foto.");
+        return;
+      }
+      if (isPhotoProcessing) {
+        alert("Foto sebelumnya masih sedang diproses. Tunggu sampai selesai.");
+        return;
+      }
+
+      const officer = document.getElementById('officerName').value.trim();
+      if (!officer || officer.length < 2) {
+        alert("Mohon isi nama petugas terlebih dahulu!");
+        document.getElementById('officerName').focus();
+        return;
+      }
+      if (!window.Html5Qrcode) {
+        alert("Library QR lokal belum tersedia. Buka aplikasi sekali saat online dan pastikan file vendor/html5-qrcode.min.js sudah tersimpan.");
+        return;
+      }
+      document.getElementById('photoInput').click();
+    }
+
+    async function handlePhotoSelected(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      if (!(await ensureLocalStorageReady())) {
+        input.value = "";
+        return;
+      }
+      if (!/^image\//i.test(file.type || "")) {
+        alert("File yang dipilih bukan gambar. Ambil foto QR gelang kembali.");
+        input.value = "";
+        return;
+      }
+
+      isPhotoProcessing = true;
+      document.getElementById('btnPhotoScan').disabled = true;
+      document.getElementById('btnPhotoScan').textContent = "⏳ MEMBACA FOTO QR...";
+      document.getElementById('resultBox').style.display = 'none';
+      setScannerStatus("MEMBACA QR DARI FOTO DI PERANGKAT — TUNGGU...");
+
+      try {
+        photoQrReader = new Html5Qrcode("photoReader", {
+          verbose: false,
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        });
+
+        const decodedText = await photoQrReader.scanFile(file, false);
+        const accepted = enqueueDecodedQr(decodedText, "FOTO");
+
+        if (accepted) {
+          setScannerStatus("✓ FOTO BERHASIL DIBACA — QR " + String(decodedText).trim() + " TERSIMPAN DI ANTREAN. AMBIL FOTO GELANG BERIKUTNYA.");
+        }
+      } catch (err) {
+        console.warn("QR tidak terbaca dari foto:", err);
+        setScannerStatus("QR TIDAK TERBACA — ATUR ULANG POSISI, CAHAYA, DAN KETAJAMAN, LALU FOTO ULANG.");
+        alert("QR belum berhasil dibaca dari foto. Coba foto ulang dengan QR memenuhi bagian tengah, tidak miring, tidak buram, dan mendapat cahaya cukup.");
+      } finally {
+        try {
+          if (photoQrReader) photoQrReader.clear();
+        } catch (clearErr) {
+          console.info("Pembersihan pembaca foto:", clearErr);
+        }
+        photoQrReader = null;
+        input.value = "";
+        isPhotoProcessing = false;
+        document.getElementById('btnPhotoScan').disabled = false;
+        document.getElementById('btnPhotoScan').textContent = "📸 Scan Foto — Satu Gelang";
+      }
+    }
+
     async function processScanQueue() {
       if (isProcessing || scanQueue.length === 0) return;
       if (!navigator.onLine) {
