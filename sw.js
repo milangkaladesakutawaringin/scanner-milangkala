@@ -1,4 +1,4 @@
-const CACHE_NAME = "scan-qr-gelang-v3-antrean-aman";
+const CACHE_NAME = "scan-qr-gelang-v4-scan-cepat";
 const APP_SHELL = [
   "./",
   "./index.html",
