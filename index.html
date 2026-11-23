@@ -450,6 +450,61 @@
       return true;
     }
 
+    // Minta kamera memakai autofocus kontinu jika didukung perangkat/browser.
+    async function enableContinuousAutofocus(stream, videoElement) {
+      const track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+      if (!track) return false;
+
+      let enabled = false;
+
+      // Chromium/Android umumnya menerima focusMode melalui advanced constraints.
+      try {
+        const capabilities = track.getCapabilities ? track.getCapabilities() : null;
+        if (capabilities && capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+          await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+          enabled = true;
+        }
+      } catch (err) {
+        console.info("Autofocus kontinu via camera constraints tidak tersedia:", err);
+      }
+
+      // Beberapa browser mendukung focusMode langsung dalam constraints.
+      if (!enabled) {
+        try {
+          await track.applyConstraints({ focusMode: "continuous" });
+          enabled = true;
+        } catch (err) {
+          console.info("Autofocus langsung tidak didukung browser ini:", err);
+        }
+      }
+
+      // Sentuh fokus melalui ImageCapture jika API dan mode fokus tersedia.
+      try {
+        if (window.ImageCapture) {
+          const imageCapture = new ImageCapture(track);
+          const photoCapabilities = await imageCapture.getPhotoCapabilities();
+          if (photoCapabilities && photoCapabilities.focusMode &&
+              photoCapabilities.focusMode.includes("continuous")) {
+            await imageCapture.setOptions({ focusMode: "continuous" });
+            enabled = true;
+          }
+        }
+      } catch (err) {
+        console.info("ImageCapture autofocus tidak tersedia:", err);
+      }
+
+      // Tunggu video stabil sebelum pemotretan agar autofocus sempat bekerja.
+      if (videoElement) {
+        await new Promise(resolve => {
+          if (videoElement.readyState >= 2) return resolve();
+          videoElement.addEventListener("loadeddata", resolve, { once: true });
+          setTimeout(resolve, 1200);
+        });
+      }
+
+      return enabled;
+    }
+
     // MODE FOTO MANUAL: buka preview kamera di dalam aplikasi, petugas menekan tombol rana.
     async function startPhotoCamera() {
       if (isScanning || isStarting) {
@@ -488,22 +543,14 @@
         await video.play();
 
         // Minta autofocus kontinu pada kamera yang mendukungnya.
-        const track = photoCameraStream.getVideoTracks()[0];
-        if (track && track.applyConstraints) {
-          try {
-            await track.applyConstraints({
-              advanced: [{ focusMode: "continuous" }]
-            });
-          } catch (focusError) {
-            console.info("Autofocus kontinu tidak didukung; gunakan fokus otomatis bawaan.");
-          }
-        }
-
+        const autofocusEnabled = await enableContinuousAutofocus(photoCameraStream, video);
         document.getElementById('photoCameraPanel').style.display = 'block';
         document.getElementById('btnPhotoScan').style.display = 'none';
         document.getElementById('btnStartScan').style.display = 'none';
         document.getElementById('btnStopScan').style.display = 'none';
-        setScannerStatus("KAMERA FOTO AKTIF — ARAHKAN QR KE TENGAH, LALU TEKAN AMBIL FOTO GELANG.");
+        setScannerStatus(autofocusEnabled
+          ? "KAMERA FOTO AKTIF — AUTOFOCUS KONTINU AKTIF. ARAHKAN QR KE TENGAH, TUNGGU TAJAM, LALU TEKAN AMBIL FOTO."
+          : "KAMERA FOTO AKTIF — AUTOFOCUS MENGIKUTI PENGATURAN BAWAAN HP. TUNGGU GAMBAR TAJAM, LALU TEKAN AMBIL FOTO.");
       } catch (err) {
         console.error("Gagal membuka kamera foto:", err);
         closePhotoCamera();
