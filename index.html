@@ -745,34 +745,30 @@
       // Frame tanpa QR adalah kondisi normal; tidak perlu menampilkan pesan.
     }
 
-    // Notifikasi sukses dibuat singkat: hanya tulisan BERHASIL, tanpa detail dan tombol.
+    // Scan sukses tidak menampilkan kotak notifikasi apa pun.
     function showResult(data) {
       const box = document.getElementById('resultBox');
       const title = document.getElementById('resultTitle');
       const detail = document.getElementById('resultDetail');
 
-      box.style.display = 'block';
-      box.className = 'card result-box ' + (data.success ? 'success' : 'error');
-
       if (data.success) {
-        title.textContent = "✅ BERHASIL";
+        clearTimeout(window.scanSuccessNoticeTimer);
+        box.style.display = 'none';
         detail.textContent = "";
         detail.style.display = "none";
-
-        // Hilangkan notifikasi otomatis; proses scan tetap berjalan.
-        clearTimeout(window.scanSuccessNoticeTimer);
-        window.scanSuccessNoticeTimer = setTimeout(() => {
-          box.style.display = 'none';
-        }, 1800);
-      } else {
-        title.textContent = "⛔ SCAN DITOLAK";
-        detail.style.display = "block";
-        detail.innerHTML = `
-          <strong>Alasan:</strong> ${data.message}<br>
-          <strong>Nomor:</strong> ${data.nomor || '-'}<br>
-          <strong>Nama:</strong> ${data.nama || '-'}
-        `;
+        return;
       }
+
+      // Notifikasi penolakan tetap ditampilkan agar petugas tahu alasan QR ditolak.
+      box.style.display = 'block';
+      box.className = 'card result-box error';
+      title.textContent = "⛔ SCAN DITOLAK";
+      detail.style.display = "block";
+      detail.innerHTML = `
+        <strong>Alasan:</strong> ${data.message}<br>
+        <strong>Nomor:</strong> ${data.nomor || '-'}<br>
+        <strong>Nama:</strong> ${data.nama || '-'}
+      `;
     }
 
     function dismissResult() {
