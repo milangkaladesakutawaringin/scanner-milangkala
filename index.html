@@ -77,9 +77,6 @@
       height: 100% !important;
       object-fit: cover !important;
     }
-    #photoCameraPanel { scroll-margin-top: 0; }
-    #photoVideoFrame { height: min(92vw, 48svh); }
-    #photoVideo { object-fit: cover !important; }
     
     .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
     .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
@@ -97,17 +94,7 @@
   <!-- Area kamera di bagian paling atas agar sejajar dengan posisi kamera belakang HP -->
   <div id="reader"></div>
 
-  <div id="photoCameraPanel" style="display:none;width:min(100%,500px);margin:0 auto 12px;text-align:center;">
-    <div id="photoVideoFrame" style="position:relative;width:100%;height:min(92vw,48svh);overflow:hidden;border:2px dashed var(--gold);border-radius:16px;background:#000;">
-      <video id="photoVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
-      <div class="photo-corners" aria-hidden="true"></div>
-      <div id="photoBusy" style="display:none;position:absolute;inset:0;background:#0009;color:white;align-items:center;justify-content:center;font-weight:900;">MEMBACA QR FOTO…</div>
-    </div>
-    <canvas id="photoCanvas" style="display:none;"></canvas>
-    <button class="btn btn-gold" id="btnShutter" type="button" onclick="capturePhotoQr()" style="margin-top:14px;border-radius:999px;min-height:64px;font-size:1.05rem;">● AMBIL FOTO GELANG</button>
-    <button class="btn btn-stop" id="btnClosePhotoCamera" type="button" onclick="closePhotoCamera()" style="display:block;">Tutup Kamera Foto</button>
-  </div>
-  <div id="photoReader" style="display:none;width:1px;height:1px;overflow:hidden;"></div>
+
 
 
 
@@ -135,15 +122,10 @@
       <label class="form-label">NAMA PETUGAS LAPANGAN</label>
       <input type="text" id="officerName" class="form-input" placeholder="Ketik nama Anda (misal: PETUGAS 1)" required>
     </div>
-    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 Scan Live Otomatis</button>
-    <button class="btn btn-gold" id="btnPhotoScan" type="button" onclick="startPhotoCamera()" style="margin-top:10px;">📸 Scan Foto — Tekan Tombol Foto</button>
+    <button class="btn btn-gold" id="btnStartScan" onclick="startScanner()">📷 SCAN LIVE OTOMATIS</button>
     <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Jeda Scanner</button>
   </div>
-<canvas id="photoCanvas" style="display:none;"></canvas>
-    <button class="btn btn-gold" id="btnShutter" type="button" onclick="capturePhotoQr()" style="margin-top:14px;border-radius:999px;min-height:64px;font-size:1.05rem;">● AMBIL FOTO GELANG</button>
-    <button class="btn btn-stop" id="btnClosePhotoCamera" type="button" onclick="closePhotoCamera()" style="display:block;">Tutup Kamera Foto</button>
-  </div>
-<div id="networkStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;font-weight:800;margin:8px 0 4px;">MEMERIKSA KONEKSI…</div>
+  <div id="networkStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;font-weight:800;margin:8px 0 4px;">MEMERIKSA KONEKSI…</div>
   <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:4px 0 6px;">Scanner belum aktif.</div>
   <div id="queueStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;margin-bottom:12px;">ANTRIAN: 0 | BERHASIL: 0 | DITOLAK: 0</div>
 
@@ -167,11 +149,8 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbyrjVOusQ__ChTzgTSM8QdXSiyZl4W0H-bLfJmxgrb2JxRq_R867b4QxeBUYFODuiaSAw/exec";
 
     let html5QrcodeScanner = null;
-    let photoQrReader = null;
-    let photoCameraStream = null;
     let isScanning = false;
     let isStarting = false;
-    let isPhotoProcessing = false;
     let isProcessing = false;
 
     // Antrean disimpan di perangkat dan TIDAK dihapus saat kamera dijeda/dimatikan.
@@ -360,7 +339,7 @@
       document.getElementById('reader').scrollIntoView({ behavior: 'smooth', block: 'start' });
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
-      setScannerStatus("Mencari kamera belakang...");
+      setScannerStatus("MEMBUKA KAMERA BELAKANG — SCAN LIVE OTOMATIS...");
 
       try {
         html5QrcodeScanner = new Html5Qrcode("reader", {
@@ -370,9 +349,9 @@
 
         const config = {
           // FPS moderat membantu decoding stabil pada HP kelas menengah.
-          fps: 20,
+          fps: 25,
           qrbox: (viewWidth, viewHeight) => {
-            const side = Math.max(220, Math.min(360, Math.floor(Math.min(viewWidth, viewHeight) * 0.78)));
+            const side = Math.max(220, Math.min(380, Math.floor(Math.min(viewWidth, viewHeight) * 0.82)));
             return { width: side, height: side };
           },
           aspectRatio: 1.0,
@@ -471,6 +450,8 @@
         attempts: 0
       };
 
+      // Beri tanda langsung saat QR berhasil didekode kamera; tidak menunggu upload server.
+      playScanBeep();
       scanQueue.push(queueItem);
       pendingCodes.add(qrText);
       if (!persistQueue()) {
@@ -483,199 +464,9 @@
 
       setScannerStatus("✓ QR " + qrText + " AMAN DI ANTREAN HP — " +
         (navigator.onLine ? "MENUNGGU UPLOAD" : "OFFLINE, AKAN DIUPLOAD SAAT ONLINE"));
-      playScanBeep();
       updateQueueStatus();
       processScanQueue();
       return true;
-    }
-
-    // Minta kamera memakai autofocus kontinu jika didukung perangkat/browser.
-    async function enableContinuousAutofocus(stream, videoElement) {
-      const track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
-      if (!track) return false;
-
-      let enabled = false;
-
-      // Chromium/Android umumnya menerima focusMode melalui advanced constraints.
-      try {
-        const capabilities = track.getCapabilities ? track.getCapabilities() : null;
-        if (capabilities && capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
-          await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
-          enabled = true;
-        }
-      } catch (err) {
-        console.info("Autofocus kontinu via camera constraints tidak tersedia:", err);
-      }
-
-      // Beberapa browser mendukung focusMode langsung dalam constraints.
-      if (!enabled) {
-        try {
-          await track.applyConstraints({ focusMode: "continuous" });
-          enabled = true;
-        } catch (err) {
-          console.info("Autofocus langsung tidak didukung browser ini:", err);
-        }
-      }
-
-      // Sentuh fokus melalui ImageCapture jika API dan mode fokus tersedia.
-      try {
-        if (window.ImageCapture) {
-          const imageCapture = new ImageCapture(track);
-          const photoCapabilities = await imageCapture.getPhotoCapabilities();
-          if (photoCapabilities && photoCapabilities.focusMode &&
-              photoCapabilities.focusMode.includes("continuous")) {
-            await imageCapture.setOptions({ focusMode: "continuous" });
-            enabled = true;
-          }
-        }
-      } catch (err) {
-        console.info("ImageCapture autofocus tidak tersedia:", err);
-      }
-
-      // Tunggu video stabil sebelum pemotretan agar autofocus sempat bekerja.
-      if (videoElement) {
-        await new Promise(resolve => {
-          if (videoElement.readyState >= 2) return resolve();
-          videoElement.addEventListener("loadeddata", resolve, { once: true });
-          setTimeout(resolve, 1200);
-        });
-      }
-
-      return enabled;
-    }
-
-    // MODE FOTO MANUAL: buka preview kamera di dalam aplikasi, petugas menekan tombol rana.
-    async function startPhotoCamera() {
-      if (isScanning || isStarting) {
-        alert("Jeda Scan Live terlebih dahulu sebelum menggunakan Scan Foto.");
-        return;
-      }
-      if (photoCameraStream) return;
-      if (isPhotoProcessing) return;
-
-      const officer = document.getElementById('officerName').value.trim();
-      if (!officer || officer.length < 2) {
-        alert("Mohon isi nama petugas terlebih dahulu!");
-        document.getElementById('officerName').focus();
-        return;
-      }
-      if (!(await ensureLocalStorageReady())) return;
-      if (!window.Html5Qrcode || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Kamera manual tidak tersedia. Pastikan aplikasi dibuka melalui HTTPS dan library QR lokal sudah terpasang.");
-        return;
-      }
-
-      try {
-        prepareScanSound();
-        setScannerStatus("MEMBUKA KAMERA BELAKANG...");
-        photoCameraStream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1920 }
-          }
-        });
-
-        const video = document.getElementById('photoVideo');
-        video.srcObject = photoCameraStream;
-        await video.play();
-
-        // Minta autofocus kontinu pada kamera yang mendukungnya.
-        const autofocusEnabled = await enableContinuousAutofocus(photoCameraStream, video);
-        document.getElementById('photoCameraPanel').style.display = 'block';
-        document.getElementById('photoCameraPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        document.getElementById('btnPhotoScan').style.display = 'none';
-        document.getElementById('btnStartScan').style.display = 'none';
-        document.getElementById('btnStopScan').style.display = 'none';
-        setScannerStatus(autofocusEnabled
-          ? "KAMERA FOTO AKTIF — AUTOFOCUS KONTINU AKTIF. ARAHKAN QR KE TENGAH, TUNGGU TAJAM, LALU TEKAN AMBIL FOTO."
-          : "KAMERA FOTO AKTIF — AUTOFOCUS MENGIKUTI PENGATURAN BAWAAN HP. TUNGGU GAMBAR TAJAM, LALU TEKAN AMBIL FOTO.");
-      } catch (err) {
-        console.error("Gagal membuka kamera foto:", err);
-        closePhotoCamera();
-        alert("Kamera tidak dapat dibuka. Izinkan akses kamera untuk situs GitHub Pages, lalu coba lagi.");
-        setScannerStatus("KAMERA FOTO GAGAL DIBUKA.");
-      }
-    }
-
-    async function capturePhotoQr() {
-      if (!photoCameraStream || isPhotoProcessing) return;
-
-      const video = document.getElementById('photoVideo');
-      if (!video.videoWidth || !video.videoHeight) {
-        setScannerStatus("KAMERA BELUM SIAP — TUNGGU SEBENTAR.");
-        return;
-      }
-
-      isPhotoProcessing = true;
-      const shutter = document.getElementById('btnShutter');
-      const busy = document.getElementById('photoBusy');
-      shutter.disabled = true;
-      shutter.textContent = "⏳ MEMBACA FOTO...";
-      busy.style.display = 'flex';
-
-      try {
-        // Ambil foto resolusi penuh dari frame kamera saat tombol ditekan.
-        const canvas = document.getElementById('photoCanvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d', { willReadFrequently: true });
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const photoBlob = await new Promise((resolve, reject) => {
-          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Gagal membuat foto dari kamera.")), "image/jpeg", 0.96);
-        });
-        const photoFile = new File([photoBlob], "gelang-" + Date.now() + ".jpg", { type: "image/jpeg" });
-
-        // Decode foto di perangkat, tanpa upload gambar ke server.
-        photoQrReader = new Html5Qrcode("photoReader", {
-          verbose: false,
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-        });
-        const decodedText = await photoQrReader.scanFile(photoFile, false);
-        const accepted = enqueueDecodedQr(decodedText, "FOTO");
-
-        if (accepted) {
-          setScannerStatus("✓ QR " + String(decodedText).trim() + " TERSIMPAN DI ANTREAN — ARAHKAN KE GELANG BERIKUTNYA.");
-        } else {
-          setScannerStatus("QR SUDAH PERNAH MASUK ANTREAN / SUDAH TERCATAT — SILAKAN FOTO GELANG BERIKUTNYA.");
-        }
-      } catch (err) {
-        console.warn("QR tidak terbaca dari foto kamera:", err);
-        setScannerStatus("QR TIDAK TERBACA — DEKATKAN, LURUSKAN, DAN PASTIKAN CAHAYA CUKUP, LALU TEKAN FOTO LAGI.");
-        alert("QR belum terbaca. Kamera tetap aktif. Atur ulang posisi gelang, pastikan QR tidak buram atau tertutup, lalu tekan AMBIL FOTO GELANG lagi.");
-      } finally {
-        try {
-          if (photoQrReader) photoQrReader.clear();
-        } catch (clearErr) {
-          console.info("Pembersihan pembaca foto:", clearErr);
-        }
-        photoQrReader = null;
-        isPhotoProcessing = false;
-        shutter.disabled = false;
-        shutter.textContent = "● AMBIL FOTO GELANG";
-        busy.style.display = 'none';
-      }
-    }
-
-    function closePhotoCamera() {
-      if (photoCameraStream) {
-        photoCameraStream.getTracks().forEach(track => track.stop());
-        photoCameraStream = null;
-      }
-      const video = document.getElementById('photoVideo');
-      if (video) video.srcObject = null;
-      const panel = document.getElementById('photoCameraPanel');
-      if (panel) panel.style.display = 'none';
-      const photoButton = document.getElementById('btnPhotoScan');
-      if (photoButton) photoButton.style.display = 'block';
-      const liveButton = document.getElementById('btnStartScan');
-      if (liveButton) liveButton.style.display = 'block';
-      const stopButton = document.getElementById('btnStopScan');
-      if (stopButton) stopButton.style.display = 'none';
-      setScannerStatus("KAMERA FOTO DITUTUP — ANTREAN TETAP TERSIMPAN.");
-      processScanQueue();
     }
 
     async function processScanQueue() {
