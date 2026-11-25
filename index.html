@@ -26,7 +26,7 @@
       --danger: #f43f5e;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    body { background-color: var(--bg-color); color: var(--text); padding: max(6px, env(safe-area-inset-top)) 10px 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     
     .header { text-align: center; margin-bottom: 20px; width: 100%; max-width: 500px; }
     .header h1 { font-size: 1.4rem; color: var(--gold); font-weight: 800; text-transform: uppercase; }
@@ -61,9 +61,10 @@
     #reader {
       width: min(100%, 500px);
       aspect-ratio: 1 / 1;
-      height: auto;
-      max-height: 92vw;
-      margin: 15px auto 0;
+      height: min(92vw, 48svh);
+      max-height: 48svh;
+      margin: 0 auto 12px;
+      scroll-margin-top: 0;
       border-radius: 16px;
       overflow: hidden;
       border: 2px dashed var(--gold);
@@ -76,6 +77,9 @@
       height: 100% !important;
       object-fit: cover !important;
     }
+    #photoCameraPanel { scroll-margin-top: 0; }
+    #photoVideoFrame { height: min(92vw, 48svh); }
+    #photoVideo { object-fit: cover !important; }
     
     .result-box { display: none; margin-top: 15px; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid transparent; }
     .result-box.success { background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: #a7f3d0; }
@@ -89,6 +93,23 @@
   </style>
 </head>
 <body>
+
+  <!-- Area kamera di bagian paling atas agar sejajar dengan posisi kamera belakang HP -->
+  <div id="reader"></div>
+
+  <div id="photoCameraPanel" style="display:none;width:min(100%,500px);margin:0 auto 12px;text-align:center;">
+    <div id="photoVideoFrame" style="position:relative;width:100%;height:min(92vw,48svh);overflow:hidden;border:2px dashed var(--gold);border-radius:16px;background:#000;">
+      <video id="photoVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+      <div class="photo-corners" aria-hidden="true"></div>
+      <div id="photoBusy" style="display:none;position:absolute;inset:0;background:#0009;color:white;align-items:center;justify-content:center;font-weight:900;">MEMBACA QR FOTO…</div>
+    </div>
+    <canvas id="photoCanvas" style="display:none;"></canvas>
+    <button class="btn btn-gold" id="btnShutter" type="button" onclick="capturePhotoQr()" style="margin-top:14px;border-radius:999px;min-height:64px;font-size:1.05rem;">● AMBIL FOTO GELANG</button>
+    <button class="btn btn-stop" id="btnClosePhotoCamera" type="button" onclick="closePhotoCamera()" style="display:block;">Tutup Kamera Foto</button>
+  </div>
+  <div id="photoReader" style="display:none;width:1px;height:1px;overflow:hidden;"></div>
+
+
 
   <div class="header">
     <h1>Scanner POS FINISH</h1>
@@ -118,21 +139,11 @@
     <button class="btn btn-gold" id="btnPhotoScan" type="button" onclick="startPhotoCamera()" style="margin-top:10px;">📸 Scan Foto — Tekan Tombol Foto</button>
     <button class="btn btn-stop" id="btnStopScan" onclick="stopScanner()">Jeda Scanner</button>
   </div>
-
-  <div id="reader"></div>
-
-  <div id="photoCameraPanel" style="display:none;width:min(100%,500px);margin:15px auto 0;text-align:center;">
-    <div id="photoVideoFrame" style="position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;border:2px dashed var(--gold);border-radius:16px;background:#000;">
-      <video id="photoVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
-      <div class="photo-corners" aria-hidden="true"></div>
-      <div id="photoBusy" style="display:none;position:absolute;inset:0;background:#0009;color:white;align-items:center;justify-content:center;font-weight:900;">MEMBACA QR FOTO…</div>
-    </div>
-    <canvas id="photoCanvas" style="display:none;"></canvas>
+<canvas id="photoCanvas" style="display:none;"></canvas>
     <button class="btn btn-gold" id="btnShutter" type="button" onclick="capturePhotoQr()" style="margin-top:14px;border-radius:999px;min-height:64px;font-size:1.05rem;">● AMBIL FOTO GELANG</button>
     <button class="btn btn-stop" id="btnClosePhotoCamera" type="button" onclick="closePhotoCamera()" style="display:block;">Tutup Kamera Foto</button>
   </div>
-  <div id="photoReader" style="display:none;width:1px;height:1px;overflow:hidden;"></div>
-  <div id="networkStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;font-weight:800;margin:8px 0 4px;">MEMERIKSA KONEKSI…</div>
+<div id="networkStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;font-weight:800;margin:8px 0 4px;">MEMERIKSA KONEKSI…</div>
   <div id="scannerStatus" style="width:100%;max-width:500px;text-align:center;color:#fbbf24;font-size:.85rem;font-weight:700;margin:4px 0 6px;">Scanner belum aktif.</div>
   <div id="queueStatus" style="width:100%;max-width:500px;text-align:center;color:#cbd5e1;font-size:.82rem;margin-bottom:12px;">ANTRIAN: 0 | BERHASIL: 0 | DITOLAK: 0</div>
 
@@ -346,6 +357,7 @@
       isStarting = true;
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('reader').style.display = 'block';
+      document.getElementById('reader').scrollIntoView({ behavior: 'smooth', block: 'start' });
       document.getElementById('btnStartScan').style.display = 'none';
       document.getElementById('btnStopScan').style.display = 'block';
       setScannerStatus("Mencari kamera belakang...");
@@ -572,6 +584,7 @@
         // Minta autofocus kontinu pada kamera yang mendukungnya.
         const autofocusEnabled = await enableContinuousAutofocus(photoCameraStream, video);
         document.getElementById('photoCameraPanel').style.display = 'block';
+        document.getElementById('photoCameraPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
         document.getElementById('btnPhotoScan').style.display = 'none';
         document.getElementById('btnStartScan').style.display = 'none';
         document.getElementById('btnStopScan').style.display = 'none';
